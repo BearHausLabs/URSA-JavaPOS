@@ -1,10 +1,14 @@
 package com.target.devicemanager.components.cashdrawer;
 
+import com.target.devicemanager.common.DeviceLifecycleResponse;
+import com.target.devicemanager.common.DeviceLifecycleState;
+import com.target.devicemanager.common.DynamicDevice;
 import com.target.devicemanager.common.entities.DeviceError;
 import com.target.devicemanager.common.entities.DeviceException;
 import com.target.devicemanager.common.entities.DeviceHealth;
 import com.target.devicemanager.common.entities.DeviceHealthResponse;
 import com.target.devicemanager.components.cashdrawer.entities.CashDrawerError;
+import jpos.CashDrawer;
 import jpos.JposConst;
 import jpos.JposException;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +42,8 @@ public class CashDrawerManagerTest {
     private Lock mockCashDrawerLock;
     @Mock
     private CacheManager mockCacheManager;
+    @Mock
+    private DynamicDevice<CashDrawer> mockDynamicDevice;
 
     private final Cache testCache = new Cache() {
         final Map<Object, Object> cacheMap = new HashMap<>();
@@ -91,6 +97,7 @@ public class CashDrawerManagerTest {
     public void testInitialize() {
         when(mockCashDrawerDevice.getDrawerId()).thenReturn(1);
         when(mockCashDrawerDevice.getDrawerType()).thenReturn("DRAWER_1");
+        when(mockCashDrawerDevice.getDynamicDevice()).thenReturn(mockDynamicDevice);
         List<CashDrawerDevice> drawers = List.of(mockCashDrawerDevice);
         cashDrawerManager = new CashDrawerManager(drawers, mockCashDrawerLock);
         cashDrawerManagerCache = new CashDrawerManager(drawers, mockCashDrawerLock, mockCacheManager);
@@ -463,5 +470,270 @@ public class CashDrawerManagerTest {
         //assert
         verify(mockCashDrawerDevice).openCashDrawer();
         verify(mockCashDrawerLock).unlock();
+    }
+
+    // --- Lifecycle method tests ---
+
+    @Test
+    public void openDevice_SetsManualModeAndDelegatesToDynamicDevice() throws JposException {
+        //arrange
+
+        //act
+        cashDrawerManager.openDevice("CashDrawer", 1);
+
+        //assert
+        assertTrue(cashDrawerManager.isManualMode());
+        verify(mockDynamicDevice).openDevice("CashDrawer");
+    }
+
+    @Test
+    public void openDevice_WithInvalidDrawerId_ThrowsJposException() {
+        //arrange
+
+        //act
+        try {
+            cashDrawerManager.openDevice("CashDrawer", 99);
+        }
+
+        //assert
+        catch (JposException jposException) {
+            assertEquals(JposConst.JPOS_E_NOEXIST, jposException.getErrorCode());
+            assertTrue(cashDrawerManager.isManualMode());
+            return;
+        }
+        fail("Expected JposException, but got none.");
+    }
+
+    @Test
+    public void claimDevice_DelegatesToDynamicDevice() throws JposException {
+        //arrange
+
+        //act
+        cashDrawerManager.claimDevice(30000, 1);
+
+        //assert
+        assertTrue(cashDrawerManager.isManualMode());
+        verify(mockDynamicDevice).claimDevice(30000);
+    }
+
+    @Test
+    public void claimDevice_WithInvalidDrawerId_ThrowsJposException() {
+        //arrange
+
+        //act
+        try {
+            cashDrawerManager.claimDevice(30000, 99);
+        }
+
+        //assert
+        catch (JposException jposException) {
+            assertEquals(JposConst.JPOS_E_NOEXIST, jposException.getErrorCode());
+            return;
+        }
+        fail("Expected JposException, but got none.");
+    }
+
+    @Test
+    public void enableDevice_DelegatesToDynamicDevice() throws JposException {
+        //arrange
+
+        //act
+        cashDrawerManager.enableDevice(1);
+
+        //assert
+        assertTrue(cashDrawerManager.isManualMode());
+        verify(mockDynamicDevice).enableDevice();
+    }
+
+    @Test
+    public void enableDevice_WithInvalidDrawerId_ThrowsJposException() {
+        //arrange
+
+        //act
+        try {
+            cashDrawerManager.enableDevice(99);
+        }
+
+        //assert
+        catch (JposException jposException) {
+            assertEquals(JposConst.JPOS_E_NOEXIST, jposException.getErrorCode());
+            return;
+        }
+        fail("Expected JposException, but got none.");
+    }
+
+    @Test
+    public void disableDevice_DelegatesToDynamicDevice() throws JposException {
+        //arrange
+
+        //act
+        cashDrawerManager.disableDevice(1);
+
+        //assert
+        assertTrue(cashDrawerManager.isManualMode());
+        verify(mockDynamicDevice).disableDevice();
+    }
+
+    @Test
+    public void disableDevice_WithInvalidDrawerId_ThrowsJposException() {
+        //arrange
+
+        //act
+        try {
+            cashDrawerManager.disableDevice(99);
+        }
+
+        //assert
+        catch (JposException jposException) {
+            assertEquals(JposConst.JPOS_E_NOEXIST, jposException.getErrorCode());
+            return;
+        }
+        fail("Expected JposException, but got none.");
+    }
+
+    @Test
+    public void releaseDevice_DelegatesToDynamicDevice() throws JposException {
+        //arrange
+
+        //act
+        cashDrawerManager.releaseDevice(1);
+
+        //assert
+        assertTrue(cashDrawerManager.isManualMode());
+        verify(mockDynamicDevice).releaseDevice();
+    }
+
+    @Test
+    public void releaseDevice_WithInvalidDrawerId_ThrowsJposException() {
+        //arrange
+
+        //act
+        try {
+            cashDrawerManager.releaseDevice(99);
+        }
+
+        //assert
+        catch (JposException jposException) {
+            assertEquals(JposConst.JPOS_E_NOEXIST, jposException.getErrorCode());
+            return;
+        }
+        fail("Expected JposException, but got none.");
+    }
+
+    @Test
+    public void closeDevice_DelegatesToDynamicDevice() throws JposException {
+        //arrange
+
+        //act
+        cashDrawerManager.closeDevice(1);
+
+        //assert
+        assertTrue(cashDrawerManager.isManualMode());
+        verify(mockDynamicDevice).closeDevice();
+    }
+
+    @Test
+    public void closeDevice_WithInvalidDrawerId_ThrowsJposException() {
+        //arrange
+
+        //act
+        try {
+            cashDrawerManager.closeDevice(99);
+        }
+
+        //assert
+        catch (JposException jposException) {
+            assertEquals(JposConst.JPOS_E_NOEXIST, jposException.getErrorCode());
+            return;
+        }
+        fail("Expected JposException, but got none.");
+    }
+
+    @Test
+    public void setAutoMode_SetsManualModeToFalse() throws JposException {
+        //arrange
+        cashDrawerManager.openDevice("CashDrawer", 1); // sets manualMode = true
+        assertTrue(cashDrawerManager.isManualMode());
+
+        //act
+        cashDrawerManager.setAutoMode();
+
+        //assert
+        assertFalse(cashDrawerManager.isManualMode());
+    }
+
+    @Test
+    public void getLifecycleStatus_ReturnsStatusForAllDrawers() {
+        //arrange
+        when(mockDynamicDevice.getLifecycleState()).thenReturn(DeviceLifecycleState.CLOSED);
+        when(mockCashDrawerDevice.getDeviceName()).thenReturn("cashDrawer");
+
+        //act
+        List<DeviceLifecycleResponse> responses = cashDrawerManager.getLifecycleStatus();
+
+        //assert
+        assertEquals(1, responses.size());
+        assertEquals(DeviceLifecycleState.CLOSED, responses.get(0).getState());
+        assertEquals("cashDrawer", responses.get(0).getLogicalName());
+        assertEquals("CashDrawer/1", responses.get(0).getDeviceType());
+    }
+
+    @Test
+    public void connect_WhenManualModeTrue_SkipsConnection() throws JposException {
+        //arrange
+        cashDrawerManager.openDevice("CashDrawer", 1); // sets manualMode = true
+        reset(mockCashDrawerDevice);
+        when(mockCashDrawerDevice.getDrawerId()).thenReturn(1);
+        when(mockCashDrawerDevice.getDynamicDevice()).thenReturn(mockDynamicDevice);
+
+        //act
+        cashDrawerManager.connect();
+
+        //assert
+        verify(mockCashDrawerDevice, never()).tryLock();
+        verify(mockCashDrawerDevice, never()).connect();
+    }
+
+    @Test
+    public void isManualMode_DefaultIsFalse() {
+        //arrange
+
+        //act
+        boolean result = cashDrawerManager.isManualMode();
+
+        //assert
+        assertFalse(result);
+    }
+
+    @Test
+    public void isManualMode_AfterLifecycleCall_IsTrue() throws JposException {
+        //arrange
+        cashDrawerManager.openDevice("CashDrawer", 1);
+
+        //act
+        boolean result = cashDrawerManager.isManualMode();
+
+        //assert
+        assertTrue(result);
+    }
+
+    @Test
+    public void getLifecycleStatus_ReflectsManualMode() throws JposException {
+        //arrange
+        when(mockDynamicDevice.getLifecycleState()).thenReturn(DeviceLifecycleState.ENABLED);
+        when(mockCashDrawerDevice.getDeviceName()).thenReturn("cashDrawer");
+
+        //act -- before manual mode
+        List<DeviceLifecycleResponse> beforeManual = cashDrawerManager.getLifecycleStatus();
+
+        //assert
+        assertFalse(beforeManual.get(0).isManualMode());
+
+        //act -- after lifecycle call sets manual mode
+        cashDrawerManager.enableDevice(1);
+        List<DeviceLifecycleResponse> afterManual = cashDrawerManager.getLifecycleStatus();
+
+        //assert
+        assertTrue(afterManual.get(0).isManualMode());
     }
 }

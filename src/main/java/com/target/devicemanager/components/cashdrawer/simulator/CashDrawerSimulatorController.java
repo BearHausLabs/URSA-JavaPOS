@@ -5,6 +5,7 @@ import com.target.devicemanager.configuration.ApplicationConfig;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import java.util.List;
 @RequestMapping(value = "/v1/simulate")
 @Tag(name = "Cash Drawer")
 @Profile("local")
+@ConditionalOnProperty(name = "possum.device.cashdrawer.enabled", havingValue = "true", matchIfMissing = true)
 public class CashDrawerSimulatorController {
     private final List<SimulatedJposCashDrawer> simulatedDrawers;
     private final ApplicationConfig applicationConfig;

@@ -30,7 +30,7 @@ public class DeviceMain {
 
     public static void main(String[] args) {
         System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, "devcon.xml");
-        System.setProperty("jpos.config.regPopulatorClass", "jpos.config.simple.xml.SimpleXmlRegPopulator");
+        System.setProperty("jpos.config.regPopulatorClass", "jpos.config.simple.xml.XercesRegPopulator");
         System.setProperty(JposPropertiesConst.JPOS_SERVICE_MANAGER_CLASS_PROP_NAME2, "jpos.loader.simple.SimpleServiceManager");
         System.setProperty("jpos.util.tracing.TurnOnAllNamedTracers", "OFF");
         ConfigurableApplicationContext dmcontext = SpringApplication.run(DeviceMain.class,args);

@@ -2,6 +2,7 @@ package com.target.devicemanager.components.scale.simulator;
 
 import com.target.devicemanager.configuration.ApplicationConfig;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +12,7 @@ import java.math.BigDecimal;
 @RestController
 @RequestMapping(value = "/v1/simulate")
 @Tag(name = "Scale")
+@ConditionalOnProperty(name = "possum.device.scale.enabled", havingValue = "true", matchIfMissing = true)
 public class ScaleSimulatorController {
     private final SimulatedJposScale simulatedJposScale;
     private final ApplicationConfig applicationConfig;

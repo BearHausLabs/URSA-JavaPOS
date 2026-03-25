@@ -104,6 +104,20 @@ task copyRuntimeJars(type: Copy) {
 
 shadowJar{
     archiveClassifier.set("")
+    // mergeServiceFiles() handles META-INF/services/* (Java SPI) only.
+    // META-INF/spring.factories is NOT a services file — it requires an explicit
+    // AppendingTransformer, otherwise Shadow last-write-wins and the core Spring Boot
+    // EnvironmentPostProcessor registrations (ConfigDataEnvironmentPostProcessor, etc.)
+    // are dropped, breaking profile activation and external config loading entirely.
+    mergeServiceFiles()
+    append('META-INF/spring.factories')
+    append('META-INF/spring.handlers')
+    append('META-INF/spring.schemas')
+    // Spring Boot 3.x auto-configuration imports (replaces spring.factories for autoconfigure)
+    append('META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports')
+    // Additional Spring Boot 3.x META-INF merge targets
+    append('META-INF/spring/aot.factories')
+    append('META-INF/spring/org.springframework.boot.actuate.autoconfigure.web.ManagementContextConfiguration.imports')
 }
 
 bootJar {
@@ -115,6 +129,195 @@ bootJar {
     }
 }
 
+// ─── Deployment ─────────────────────────────────────────────────────────
+ext {
+    deployDir = 'C:/URSA/possum'
+}
+
+task deploy {
+    description = 'Build and deploy POSSUM to C:\\URSA\\possum'
+    group = 'deployment'
+    dependsOn shadowJar
+
+    doLast {
+        def target = file(deployDir)
+        def src = file('deployment')
+
+        // Create structure
+        [target, file("${deployDir}/config"), file("${deployDir}/vendor-lib"),
+         file("${deployDir}/externalLib"), file("${deployDir}/logs")].each { it.mkdirs() }
+
+        // Copy JAR
+        copy {
+            from shadowJar.archiveFile
+            into target
+            rename { 'possum.jar' }
+        }
+
+        // Copy vendor libs
+        copy {
+            from "${src}/vendor-lib"
+            into "${deployDir}/vendor-lib"
+        }
+
+        // Copy native DLLs
+        copy {
+            from "${src}/externalLib"
+            into "${deployDir}/externalLib"
+        }
+
+        // Copy config (single source of truth)
+        copy {
+            from "${src}/config"
+            into "${deployDir}/config"
+        }
+
+        // Copy devcon.xml to root (JCL looks in working directory, not classpath)
+        copy {
+            from "${src}/config/devcon.xml"
+            into target
+        }
+
+        // Copy launch script
+        copy {
+            from "${src}/start-possum.bat"
+            into target
+        }
+
+        // Validate
+        def required = [
+            "${deployDir}/possum.jar",
+            "${deployDir}/config/application-local.properties",
+            "${deployDir}/config/possum-config.yml",
+            "${deployDir}/config/devcon.xml",
+            "${deployDir}/start-possum.bat",
+        ]
+        ['epsonjpos.jar', 'jpos1141.jar', 'JposLogger.jar',
+         'JposServiceJniScale.jar', 'JposServiceJniScanner.jar',
+         'JposServiceOnScale.jar', 'JposServiceOnScanner.jar',
+         'JposServiceScale.jar', 'JposServiceScanner.jar',
+         'xercesImpl.jar', 'xml-apis.jar'].each { required.add("${deployDir}/vendor-lib/${it}") }
+        ['CSJPOSScale.dll', 'CSJPOSScale64.dll',
+         'CSJPOSScanner.dll', 'CSJPOSScanner64.dll'].each { required.add("${deployDir}/externalLib/${it}") }
+
+        def missing = required.findAll { !file(it).exists() }
+        if (missing) {
+            throw new GradleException("DEPLOY FAILED - Missing files:\n  ${missing.join('\n  ')}")
+        }
+
+        println ''
+        println '════════════════════════════════════════════════════════'
+        println '  POSSUM deployed to C:\\URSA\\possum'
+        println '  Run: C:\\URSA\\possum\\start-possum.bat'
+        println '════════════════════════════════════════════════════════'
+    }
+}
+
+task verify {
+    description = 'Verify POSSUM deployment is ready to run'
+    group = 'deployment'
+
+    doLast {
+        def errors = []
+        def warnings = []
+
+        println 'Verifying POSSUM deployment...'
+        println ''
+
+        // Check JDK
+        def javaHome = System.env.JAVA_HOME
+        if (!javaHome) {
+            def candidates = [
+                'C:/Program Files/Microsoft/jdk-21.0.10.7-hotspot',
+                'C:/Program Files/Eclipse Adoptium/jdk-21',
+                'C:/Program Files/Java/jdk-21',
+            ]
+            def found = candidates.find { file("${it}/bin/java.exe").exists() }
+            if (found) {
+                warnings.add("JAVA_HOME not set, but found JDK at: ${found}")
+            } else {
+                errors.add('No JDK 21 found. Set JAVA_HOME or install Microsoft OpenJDK 21.')
+            }
+        } else if (!file("${javaHome}/bin/java.exe").exists()) {
+            errors.add("JAVA_HOME=${javaHome} but java.exe not found there")
+        } else {
+            println '  [OK] JDK found at ' + javaHome
+        }
+
+        // Check deploy dir
+        if (!file(deployDir).exists()) {
+            errors.add("Deploy directory ${deployDir} does not exist. Run: gradlew deploy")
+        } else {
+            println "  [OK] Deploy directory exists"
+        }
+
+        // Check possum.jar
+        def jar = file("${deployDir}/possum.jar")
+        if (!jar.exists()) {
+            errors.add('possum.jar missing')
+        } else if (jar.length() < 1_000_000) {
+            warnings.add("possum.jar seems small (${jar.length()} bytes) — expected ~50MB+")
+        } else {
+            println "  [OK] possum.jar (${String.format('%.1f', jar.length()/1_000_000.0)} MB)"
+        }
+
+        // Check vendor JARs
+        def vendorDir = file("${deployDir}/vendor-lib")
+        def jarCount = vendorDir.exists() ? (vendorDir.listFiles()?.findAll { it.name.endsWith('.jar') }?.size() ?: 0) : 0
+        if (jarCount < 11) {
+            errors.add("Only ${jarCount}/11 vendor JARs in vendor-lib/")
+        } else {
+            println "  [OK] vendor-lib/ (${jarCount} JARs)"
+        }
+
+        // Check native DLLs
+        def extDir = file("${deployDir}/externalLib")
+        def dllCount = extDir.exists() ? (extDir.listFiles()?.findAll { it.name.endsWith('.dll') }?.size() ?: 0) : 0
+        if (dllCount < 4) {
+            errors.add("Only ${dllCount}/4 native DLLs in externalLib/")
+        } else {
+            println "  [OK] externalLib/ (${dllCount} DLLs)"
+        }
+
+        // Check config files
+        ['application-local.properties', 'possum-config.yml', 'devcon.xml'].each { f ->
+            if (!file("${deployDir}/config/${f}").exists()) {
+                errors.add("config/${f} missing")
+            } else {
+                println "  [OK] config/${f}"
+            }
+        }
+
+        // Check port
+        try {
+            def socket = new java.net.ServerSocket(8080)
+            socket.close()
+            println '  [OK] Port 8080 available'
+        } catch (Exception e) {
+            warnings.add('Port 8080 in use (POSSUM may already be running)')
+        }
+
+        println ''
+        if (errors) {
+            errors.each { println "  [FAIL] ${it}" }
+            throw new GradleException('Verification failed.')
+        }
+        if (warnings) {
+            warnings.each { println "  [WARN] ${it}" }
+        }
+        if (!errors && !warnings) {
+            println 'All checks passed. Ready to start.'
+        }
+    }
+}
+
+task cleanDeploy(type: Delete) {
+    description = 'Remove the deployed POSSUM directory'
+    group = 'deployment'
+    delete deployDir
+}
+
+// ─── POM Generation ─────────────────────────────────────────────────────
 task generatePom {
     doLast {
         pom {

@@ -18,6 +18,7 @@ import jpos.JposException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -28,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 @RequestMapping(value = "/v1")
 @Tag(name = "Scale")
+@ConditionalOnProperty(name = "possum.device.scale.enabled", havingValue = "true", matchIfMissing = true)
 public class ScaleController {
 
     private final ScaleManager scaleManager;

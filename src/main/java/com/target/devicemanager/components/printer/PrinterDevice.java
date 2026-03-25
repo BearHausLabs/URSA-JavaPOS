@@ -81,9 +81,9 @@ public class PrinterDevice implements StatusUpdateListener {
             try {
                 if (!printer.getDeviceEnabled()) {
                     printer.setDeviceEnabled(true);
-                    printer.setAsyncMode(true);
-                    deviceConnected = true;
                 }
+                printer.setAsyncMode(true);
+                deviceConnected = true;
             } catch (JposException jposException) {
                 deviceConnected = false;
                 return false;

@@ -1,0 +1,29 @@
+possum:
+  mode: config
+  device:
+    printer:
+      enabled: true
+      logicalName: "POSPrinter"
+    cashdrawer:
+      enabled: false
+    scanner:
+      sub-devices:
+        flatbed:
+          enabled: false
+        handheld:
+          enabled: true
+          logicalName: "ZebraAllScanners114"
+    linedisplay:
+      enabled: false
+    micr:
+      enabled: false
+    scale:
+      enabled: false
+    msr:
+      enabled: false
+    tone:
+      enabled: false
+    keylock:
+      enabled: false
+    keyboard:
+      enabled: false

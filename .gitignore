@@ -35,5 +35,6 @@ nbdist/
 *.class
 out/
 !libs/**
+!deployment/**
 *.log
 .DS_Store

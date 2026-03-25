@@ -24,6 +24,7 @@ import jpos.JposException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.*;
@@ -34,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 @RequestMapping(value = "/v1")
 @Tag(name = "Check")
+@ConditionalOnProperty(name = "possum.device.micr.enabled", havingValue = "true", matchIfMissing = true)
 public class MicrController {
 
     private final PrinterManager printerManager;
