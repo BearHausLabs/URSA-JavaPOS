@@ -21,16 +21,12 @@ public class CashDrawerSimulatorController {
     private final ApplicationConfig applicationConfig;
 
     @Autowired
-    public CashDrawerSimulatorController(ApplicationConfig applicationConfig, List<SimulatedJposCashDrawer> simulatedDrawers) {
+    public CashDrawerSimulatorController(ApplicationConfig applicationConfig, @Autowired(required = false) List<SimulatedJposCashDrawer> simulatedDrawers) {
         if (applicationConfig == null) {
             throw new IllegalArgumentException("applicationConfig cannot be null");
         }
 
-        if (simulatedDrawers == null || simulatedDrawers.isEmpty()) {
-            throw new IllegalArgumentException("simulatedDrawers cannot be null or empty");
-        }
-
-        this.simulatedDrawers = simulatedDrawers;
+        this.simulatedDrawers = simulatedDrawers != null ? simulatedDrawers : List.of();
         this.applicationConfig = applicationConfig;
     }
 
