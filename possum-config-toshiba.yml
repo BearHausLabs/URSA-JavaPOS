@@ -1,0 +1,47 @@
+# POSSUM Workstation Configuration — Toshiba 4900-786
+# Logical names from Toshiba jpos.xml (matched via configure-io.ps1)
+# FixedManager does NOT populate the JCL registry on startup.
+# Devices MUST use explicit logicalName to call device.open(name) directly.
+
+possum:
+  mode: config
+  lifecycle: auto
+
+  device:
+    printer:
+      enabled: true
+      logicalName: POSPrinter1
+    cashdrawer:
+      enabled: true
+      drawers:
+        - logicalName: CashDrawer0
+          enabled: true
+    scanner:
+      sub-devices:
+        flatbed:
+          enabled: false
+          logicalName: ""
+        handheld:
+          enabled: true
+          logicalName: Scanner1
+    linedisplay:
+      enabled: true
+      logicalName: LineDisplay1
+    micr:
+      enabled: true
+      logicalName: MICR1
+    scale:
+      enabled: true
+      logicalName: Scale1
+    msr:
+      enabled: true
+      logicalName: MSR1
+    tone:
+      enabled: true
+      logicalName: ToneIndicator1
+    keylock:
+      enabled: true
+      logicalName: Keylock1
+    keyboard:
+      enabled: true
+      logicalName: POSKeyboard1
