@@ -1,0 +1,23 @@
+# Force LF line endings for all text files
+* text=auto eol=lf
+
+# Ensure these are always treated as text with LF
+*.java text eol=lf
+*.xml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.properties text eol=lf
+*.gradle text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.sh text eol=lf
+*.bat text eol=lf
+
+# Binary files — don't touch
+*.jar binary
+*.dll binary
+*.exe binary
+*.class binary
+*.png binary
+*.jpg binary
+*.ico binary
