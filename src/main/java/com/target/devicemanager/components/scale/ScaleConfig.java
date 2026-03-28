@@ -53,6 +53,9 @@ class ScaleConfig {
                 new CopyOnWriteArrayList<>());
 
         DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().setScaleManager(scaleManager);
+        if (workstationConfig.isManualLifecycle()) {
+            scaleManager.setManualMode(true);
+        }
         return scaleManager;
     }
 

@@ -24,6 +24,13 @@ public class WorkstationConfig {
     /** Discovery mode: 'config' (default) uses logical names; 'auto' falls back to auto-discovery. */
     private String mode = "config";
 
+    /**
+     * Lifecycle mode: 'manual' (default) — POSSUM only discovers/configures devices,
+     * the POS application (URSA) controls open/claim/enable via lifecycle endpoints.
+     * 'auto' — POSSUM auto-connects devices on startup (legacy Target behavior).
+     */
+    private String lifecycle = "manual";
+
     private Map<String, DeviceConfig> device = new HashMap<>();
 
     public String getMode() {
@@ -32,6 +39,18 @@ public class WorkstationConfig {
 
     public void setMode(String mode) {
         this.mode = mode;
+    }
+
+    public String getLifecycle() {
+        return lifecycle;
+    }
+
+    public void setLifecycle(String lifecycle) {
+        this.lifecycle = lifecycle;
+    }
+
+    public boolean isManualLifecycle() {
+        return !"auto".equalsIgnoreCase(lifecycle);
     }
 
     public Map<String, DeviceConfig> getDevice() {

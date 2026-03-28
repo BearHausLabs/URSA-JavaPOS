@@ -55,6 +55,9 @@ class MsrConfig {
                 new ReentrantLock());
 
         DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().setMsrManager(msrManager);
+        if (workstationConfig.isManualLifecycle()) {
+            msrManager.setManualMode(true);
+        }
         return msrManager;
     }
 

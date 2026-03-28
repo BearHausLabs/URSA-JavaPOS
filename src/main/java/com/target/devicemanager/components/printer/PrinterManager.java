@@ -245,6 +245,10 @@ public class PrinterManager {
         log.logDeviceEvent("lifecycle_auto", "Printer", printerDevice.getDeviceName());
     }
 
+    public void setManualMode(boolean manual) {
+        manualMode = manual;
+    }
+
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 printerDevice.getDynamicDevice().getLifecycleState(),

@@ -195,6 +195,10 @@ public class KeyboardManager {
         log.logDeviceEvent("lifecycle_auto", "Keyboard", keyboardDevice.getDeviceName());
     }
 
+    public void setManualMode(boolean manual) {
+        manualMode = manual;
+    }
+
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 keyboardDevice.getDynamicDevice().getLifecycleState(),

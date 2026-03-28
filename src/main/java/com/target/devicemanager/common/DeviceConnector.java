@@ -277,6 +277,7 @@ public class DeviceConnector<T extends BaseJposControl> {
 
     private List<String> getLogicalNamesForDeviceType() {
         for(int i = 0; i < RETRY_REGISTRY_LOAD && deviceRegistry.getSize() == 0; i++) {
+            log.success("registry load attempt " + (i + 1) + "/" + RETRY_REGISTRY_LOAD + " (size=" + deviceRegistry.getSize() + ")", 5);
             deviceRegistry.load();
             try {
                 Thread.sleep(1000);
@@ -286,7 +287,8 @@ public class DeviceConnector<T extends BaseJposControl> {
         }
 
         ArrayList<SimpleEntry> list = Collections.list((Enumeration<SimpleEntry>)deviceRegistry.getEntries());
-        return list
+        String targetCategory = device.getClass().getSimpleName();
+        List<String> result = list
                 .stream()
                 .filter(x -> {
                     String deviceCategory = x.getPropertyValue("deviceCategory").toString();
@@ -301,6 +303,15 @@ public class DeviceConnector<T extends BaseJposControl> {
                 })
                 .map(x -> x.getPropertyValue("logicalName").toString())
                 .collect(Collectors.toCollection(ArrayList::new));
+
+        if (result.isEmpty()) {
+            log.failure("no logical names found for " + targetCategory +
+                    " (registry has " + list.size() + " total entries)", 13, null);
+        } else {
+            log.success("found " + result.size() + " logical name(s) for " + targetCategory + ": " + result, 5);
+        }
+
+        return result;
     }
 
     private String getDefaultDeviceName() {

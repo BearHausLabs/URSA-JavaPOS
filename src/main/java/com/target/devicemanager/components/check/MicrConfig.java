@@ -49,6 +49,9 @@ class MicrConfig {
                 new MicrDevice(dynamicMicr,new CopyOnWriteArrayList<>(),new CopyOnWriteArrayList<>()));
 
         DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().setMicrManager(micrManager);
+        if (workstationConfig.isManualLifecycle()) {
+            micrManager.setManualMode(true);
+        }
         return micrManager;
     }
 

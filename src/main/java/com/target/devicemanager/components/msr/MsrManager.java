@@ -176,6 +176,10 @@ public class MsrManager {
         log.logDeviceEvent("lifecycle_auto", "MSR", msrDevice.getDeviceName());
     }
 
+    public void setManualMode(boolean manual) {
+        manualMode = manual;
+    }
+
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 msrDevice.getDynamicDevice().getLifecycleState(),

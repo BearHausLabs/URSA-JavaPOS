@@ -110,6 +110,9 @@ class ScannerConfig {
         ScannerManager scannerManager = new ScannerManager(getScanners(), new ReentrantLock());
 
         DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().setScannerManager(scannerManager);
+        if (workstationConfig.isManualLifecycle()) {
+            scannerManager.setManualMode(true);
+        }
         return scannerManager;
     }
 

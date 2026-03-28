@@ -56,6 +56,9 @@ class KeyboardConfig {
                 new ReentrantLock());
 
         DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().setKeyboardManager(keyboardManager);
+        if (workstationConfig.isManualLifecycle()) {
+            keyboardManager.setManualMode(true);
+        }
         return keyboardManager;
     }
 

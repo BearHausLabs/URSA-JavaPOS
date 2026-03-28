@@ -52,6 +52,9 @@ class ToneConfig {
                 new ReentrantLock());
 
         DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().setToneManager(toneManager);
+        if (workstationConfig.isManualLifecycle()) {
+            toneManager.setManualMode(true);
+        }
         return toneManager;
     }
 

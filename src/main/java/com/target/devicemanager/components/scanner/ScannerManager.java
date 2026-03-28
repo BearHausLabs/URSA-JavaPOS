@@ -356,6 +356,10 @@ public class ScannerManager {
         log.logDeviceEvent("lifecycle_auto", "Scanner", "all");
     }
 
+    public void setManualMode(boolean manual) {
+        manualMode = manual;
+    }
+
     public List<DeviceLifecycleResponse> getLifecycleStatus() {
         List<DeviceLifecycleResponse> responses = new ArrayList<>();
         for (ScannerDevice scanner : scanners) {

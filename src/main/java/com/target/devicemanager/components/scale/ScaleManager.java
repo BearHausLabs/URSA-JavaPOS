@@ -267,6 +267,10 @@ public class ScaleManager implements ScaleEventListener, ConnectionEventListener
         log.logDeviceEvent("lifecycle_auto", "Scale", scaleDevice.getDeviceName());
     }
 
+    public void setManualMode(boolean manual) {
+        manualMode = manual;
+    }
+
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 scaleDevice.getDynamicDevice().getLifecycleState(),

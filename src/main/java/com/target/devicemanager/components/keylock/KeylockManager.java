@@ -222,6 +222,10 @@ public class KeylockManager {
         log.logDeviceEvent("lifecycle_auto", "Keylock", keylockDevice.getDeviceName());
     }
 
+    public void setManualMode(boolean manual) {
+        manualMode = manual;
+    }
+
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 keylockDevice.getDynamicDevice().getLifecycleState(),

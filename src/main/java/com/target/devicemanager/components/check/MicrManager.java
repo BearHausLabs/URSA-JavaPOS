@@ -223,6 +223,10 @@ public class MicrManager implements MicrEventListener, ConnectionEventListener {
         log.logDeviceEvent("lifecycle_auto", "MICR", micrDevice.getDeviceName());
     }
 
+    public void setManualMode(boolean manual) {
+        manualMode = manual;
+    }
+
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 micrDevice.getDynamicDevice().getLifecycleState(),

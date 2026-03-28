@@ -12,6 +12,12 @@
 possum:
   mode: config
 
+  # Lifecycle mode:
+  #   'manual' (default) — POSSUM only discovers/configures devices.
+  #     The POS application (URSA) controls open/claim/enable via /lifecycle endpoints.
+  #   'auto' — POSSUM auto-connects devices on startup (legacy behavior).
+  lifecycle: manual
+
   device:
     printer:
       enabled: true

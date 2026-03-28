@@ -184,6 +184,10 @@ public class ToneManager {
         log.logDeviceEvent("lifecycle_auto", "ToneIndicator", toneDevice.getDeviceName());
     }
 
+    public void setManualMode(boolean manual) {
+        manualMode = manual;
+    }
+
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 toneDevice.getDynamicDevice().getLifecycleState(),

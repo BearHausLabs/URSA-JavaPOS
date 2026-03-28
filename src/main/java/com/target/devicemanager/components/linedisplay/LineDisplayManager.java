@@ -180,6 +180,10 @@ public class LineDisplayManager implements ConnectionEventListener {
         log.logDeviceEvent("lifecycle_auto", "LineDisplay", lineDisplayDevice.getDeviceName());
     }
 
+    public void setManualMode(boolean manual) {
+        manualMode = manual;
+    }
+
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 lineDisplayDevice.getDynamicDevice().getLifecycleState(),

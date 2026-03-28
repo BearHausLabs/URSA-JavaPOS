@@ -100,6 +100,9 @@ class CashDrawerConfig {
         CashDrawerManager cashDrawerManager = new CashDrawerManager(getCashDrawers(), new ReentrantLock());
 
         DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().setCashDrawerManager(cashDrawerManager);
+        if (workstationConfig.isManualLifecycle()) {
+            cashDrawerManager.setManualMode(true);
+        }
         return cashDrawerManager;
     }
 

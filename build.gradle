@@ -172,11 +172,7 @@ task deploy {
             into "${deployDir}/config"
         }
 
-        // Copy devcon.xml to root (JCL looks in working directory, not classpath)
-        copy {
-            from "${src}/config/devcon.xml"
-            into target
-        }
+        // devcon.xml lives only in config/ — DeviceMain.java resolves it there
 
         // Copy launch script
         copy {
@@ -192,13 +188,8 @@ task deploy {
             "${deployDir}/config/devcon.xml",
             "${deployDir}/start-possum.bat",
         ]
-        ['epsonjpos.jar', 'jpos1141.jar', 'JposLogger.jar',
-         'JposServiceJniScale.jar', 'JposServiceJniScanner.jar',
-         'JposServiceOnScale.jar', 'JposServiceOnScanner.jar',
-         'JposServiceScale.jar', 'JposServiceScanner.jar',
-         'xercesImpl.jar', 'xml-apis.jar'].each { required.add("${deployDir}/vendor-lib/${it}") }
-        ['CSJPOSScale.dll', 'CSJPOSScale64.dll',
-         'CSJPOSScanner.dll', 'CSJPOSScanner64.dll'].each { required.add("${deployDir}/externalLib/${it}") }
+        // Vendor JARs and DLLs are staged by configure-possum.ps1 at runtime,
+        // not validated at build time — hardware varies per register.
 
         def missing = required.findAll { !file(it).exists() }
         if (missing) {

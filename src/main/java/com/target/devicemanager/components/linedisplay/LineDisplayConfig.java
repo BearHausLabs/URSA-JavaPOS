@@ -50,6 +50,9 @@ class LineDisplayConfig {
                 new LineDisplayDevice(dynamicLineDisplay));
 
         DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().setLineDisplayManager(lineDisplayManager);
+        if (workstationConfig.isManualLifecycle()) {
+            lineDisplayManager.setManualMode(true);
+        }
         return lineDisplayManager;
     }
 

@@ -1,6 +1,9 @@
 package com.target.devicemanager;
 
 import com.target.devicemanager.common.StructuredEventLogger;
+import jpos.config.JposEntryRegistry;
+import jpos.config.simple.SimpleEntry;
+import jpos.loader.JposServiceLoader;
 import jpos.util.JposPropertiesConst;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,15 +32,46 @@ public class DeviceMain {
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getDeviceManagerServiceName(), "DeviceMain", LOGGER);
 
     public static void main(String[] args) {
-        System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, "devcon.xml");
-        System.setProperty("jpos.config.regPopulatorClass", "jpos.config.simple.xml.XercesRegPopulator");
-        System.setProperty(JposPropertiesConst.JPOS_SERVICE_MANAGER_CLASS_PROP_NAME2, "jpos.loader.simple.SimpleServiceManager");
+        // JCL configuration: let deploy-time jpos/res/jpos.properties control
+        // the ServiceManager and RegPopulator classes. This allows vendor-specific
+        // configs (e.g. Toshiba FixedManager + SDIPopulator) to work natively.
+        //
+        // Priority for populator file:
+        //   1. POSSUM_DEVCON_PATH env var (explicit override)
+        //   2. jpos.properties populator.file.0 / populatorFile (deploy-time config)
+        //   3. Fallback: config/devcon.xml relative to working directory
+        //
+        // The fallback is critical: if jpos/res/jpos.properties defines multi-populator
+        // classes (e.g. Toshiba) but omits populator.file.0, SimpleXmlRegPopulator
+        // would have no file to load, resulting in an empty registry and no devices.
+        String devconPath = System.getenv("POSSUM_DEVCON_PATH");
+        if (devconPath != null) {
+            LOGGER.info("JCL populator file set from POSSUM_DEVCON_PATH: {}", devconPath);
+            System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, devconPath);
+        } else {
+            // Set fallback populator file so SimpleXmlRegPopulator always has a file.
+            // If jpos.properties defines populator.file.0, that takes precedence for
+            // populator class 0. This fallback covers the single-populator case and
+            // any multi-populator config that forgot to specify a file path.
+            File fallbackDevcon = new File("config/devcon.xml");
+            if (fallbackDevcon.exists()) {
+                String fallbackPath = fallbackDevcon.getAbsolutePath().replace('\\', '/');
+                LOGGER.info("JCL populator file fallback: {}", fallbackPath);
+                System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, fallbackPath);
+            } else {
+                LOGGER.warn("No POSSUM_DEVCON_PATH env var and no config/devcon.xml found. " +
+                        "JCL will rely on jpos/res/jpos.properties for populator file paths.");
+            }
+        }
         System.setProperty("jpos.util.tracing.TurnOnAllNamedTracers", "OFF");
         ConfigurableApplicationContext dmcontext = SpringApplication.run(DeviceMain.class,args);
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void crashCountInStartup() {
+        // Log JCL configuration state for diagnostics
+        logJclDiagnostics();
+
         Boolean isSimulationMode = Boolean.parseBoolean(System.getProperty("useSimulators"));
         if(!isSimulationMode) {
             try {
@@ -72,6 +106,52 @@ public class DeviceMain {
             } catch (Exception exception) {
                 log.failure("Error getting crash log file path", 17, exception);
             }
+        }
+    }
+
+    /**
+     * Log JCL (JavaPOS Configuration Loader) state at startup for diagnostics.
+     * Reports the ServiceManager class, populator file, and number of registry entries.
+     * This makes it easy to diagnose "no devices found" issues from logs alone.
+     */
+    private void logJclDiagnostics() {
+        try {
+            String svcMgr = System.getProperty("jpos.loader.serviceManagerClass", "(from jpos.properties)");
+            String popFile = System.getProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, "(not set via system property)");
+            log.success("JCL ServiceManager: " + svcMgr, 5);
+            log.success("JCL populatorFile system property: " + popFile, 5);
+
+            JposEntryRegistry registry = JposServiceLoader.getManager().getEntryRegistry();
+            if (registry != null) {
+                int size = registry.getSize();
+                log.success("JCL registry loaded: " + size + " entries", 9);
+                if (size == 0) {
+                    log.failure("JCL registry is EMPTY. Devices will not be discovered. " +
+                            "Check that jpos/res/jpos.properties has a valid populator file path " +
+                            "or that config/devcon.xml exists.", 17, null);
+                } else {
+                    // Log first few entries for verification
+                    java.util.ArrayList<SimpleEntry> entries = java.util.Collections.list(
+                            (java.util.Enumeration<SimpleEntry>) registry.getEntries());
+                    int logCount = Math.min(entries.size(), 5);
+                    for (int i = 0; i < logCount; i++) {
+                        SimpleEntry e = entries.get(i);
+                        try {
+                            String name = e.getPropertyValue("logicalName").toString();
+                            String cat = e.getPropertyValue("deviceCategory").toString();
+                            log.success("  JCL entry: " + name + " (" + cat + ")", 5);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    if (entries.size() > 5) {
+                        log.success("  ... and " + (entries.size() - 5) + " more entries", 5);
+                    }
+                }
+            } else {
+                log.failure("JCL registry is NULL. JposServiceLoader.getManager() returned null registry.", 17, null);
+            }
+        } catch (Exception e) {
+            log.failure("Failed to log JCL diagnostics: " + e.getMessage(), 13, e);
         }
     }
 

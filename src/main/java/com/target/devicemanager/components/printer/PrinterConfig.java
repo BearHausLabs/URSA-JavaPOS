@@ -53,6 +53,9 @@ class PrinterConfig {
                 new ReentrantLock());
 
         DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().setPrinterManager(printerManager);
+        if (workstationConfig.isManualLifecycle()) {
+            printerManager.setManualMode(true);
+        }
         return printerManager;
     }
 

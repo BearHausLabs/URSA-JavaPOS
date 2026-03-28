@@ -57,6 +57,9 @@ class KeylockConfig {
                 new ReentrantLock());
 
         DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().setKeylockManager(keylockManager);
+        if (workstationConfig.isManualLifecycle()) {
+            keylockManager.setManualMode(true);
+        }
         return keylockManager;
     }
 

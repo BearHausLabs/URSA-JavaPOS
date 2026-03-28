@@ -288,6 +288,10 @@ public class CashDrawerManager {
         log.logDeviceEvent("lifecycle_auto", "CashDrawer", "all");
     }
 
+    public void setManualMode(boolean manual) {
+        manualMode = manual;
+    }
+
     public List<DeviceLifecycleResponse> getLifecycleStatus() {
         List<DeviceLifecycleResponse> responses = new ArrayList<>();
         for (CashDrawerDevice drawer : cashDrawers) {
