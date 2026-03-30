@@ -13,13 +13,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Profile;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 
 import java.util.Objects;
 
 @Profile({"local","dev","prod"})
-@EnableScheduling
 @EnableCaching
 public class LineDisplayManager implements ConnectionEventListener {
 
@@ -27,8 +24,6 @@ public class LineDisplayManager implements ConnectionEventListener {
     private CacheManager cacheManager;
 
     private final LineDisplayDevice lineDisplayDevice;
-    private ConnectEnum connectStatus = ConnectEnum.FIRST_CONNECT;
-    private boolean manualMode = false;
     private static final Logger LOGGER = LoggerFactory.getLogger(LineDisplayManager.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getLineDisplayServiceName(), "LineDisplayManager", LOGGER);
 
@@ -48,32 +43,10 @@ public class LineDisplayManager implements ConnectionEventListener {
         }
     }
 
-    @Scheduled(fixedDelay = 5000, initialDelay = 5000)
-    public void connect() {
-        if (manualMode) {
-            return;
-        }
-
-        if (lineDisplayDevice.tryLock()) {
-            try {
-                lineDisplayDevice.connect();
-            } finally {
-                lineDisplayDevice.unlock();
-            }
-        }
-
-        if (connectStatus == ConnectEnum.FIRST_CONNECT) {
-            connectStatus = ConnectEnum.CHECK_HEALTH;
-        }
-    }
-
     public void reconnectDevice() throws DeviceException {
         if (lineDisplayDevice.tryLock()) {
             try {
                 lineDisplayDevice.disconnect();
-                if (!lineDisplayDevice.connect()) {
-                    throw new DeviceException(DeviceError.DEVICE_OFFLINE);
-                }
             } finally {
                 lineDisplayDevice.unlock();
             }
@@ -123,10 +96,6 @@ public class LineDisplayManager implements ConnectionEventListener {
     public DeviceHealthResponse getStatus() {
         try {
             if (cacheManager != null && Objects.requireNonNull(cacheManager.getCache("lineDisplayHealth")).get("health") != null) {
-                if (connectStatus == ConnectEnum.CHECK_HEALTH) {
-                    connectStatus = ConnectEnum.HEALTH_UPDATED;
-                    return getHealth();
-                }
                 return (DeviceHealthResponse) Objects.requireNonNull(cacheManager.getCache("lineDisplayHealth")).get("health").get();
             } else {
                 log.success("Not able to retrieve from cache, checking getHealth()", 5);
@@ -137,63 +106,56 @@ public class LineDisplayManager implements ConnectionEventListener {
         }
     }
 
-    // --- Step 5: Lifecycle methods ---
+    // --- Lifecycle methods ---
 
     public void openDevice(String logicalName) throws JposException {
-        manualMode = true;
         lineDisplayDevice.getDynamicDevice().openDevice(logicalName);
         log.logDeviceEvent("lifecycle_open", "LineDisplay", logicalName);
     }
 
     public void claimDevice(int timeout) throws JposException {
-        manualMode = true;
         lineDisplayDevice.getDynamicDevice().claimDevice(timeout);
         log.logDeviceEvent("lifecycle_claim", "LineDisplay", lineDisplayDevice.getDeviceName());
     }
 
     public void enableDevice() throws JposException {
-        manualMode = true;
         lineDisplayDevice.getDynamicDevice().enableDevice();
         log.logDeviceEvent("lifecycle_enable", "LineDisplay", lineDisplayDevice.getDeviceName());
     }
 
     public void disableDevice() throws JposException {
-        manualMode = true;
         lineDisplayDevice.getDynamicDevice().disableDevice();
         log.logDeviceEvent("lifecycle_disable", "LineDisplay", lineDisplayDevice.getDeviceName());
     }
 
     public void releaseDevice() throws JposException {
-        manualMode = true;
         lineDisplayDevice.getDynamicDevice().releaseDevice();
         log.logDeviceEvent("lifecycle_release", "LineDisplay", lineDisplayDevice.getDeviceName());
     }
 
     public void closeDevice() throws JposException {
-        manualMode = true;
         lineDisplayDevice.getDynamicDevice().closeDevice();
         log.logDeviceEvent("lifecycle_close", "LineDisplay", lineDisplayDevice.getDeviceName());
     }
 
     public void setAutoMode() {
-        manualMode = false;
-        log.logDeviceEvent("lifecycle_auto", "LineDisplay", lineDisplayDevice.getDeviceName());
+        // No-op: URSA always owns device lifecycle.
+        log.logDeviceEvent("lifecycle_auto_noop", "LineDisplay", lineDisplayDevice.getDeviceName());
     }
 
     public void setManualMode(boolean manual) {
-        manualMode = manual;
+        // No-op: always in manual mode.
     }
 
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 lineDisplayDevice.getDynamicDevice().getLifecycleState(),
                 lineDisplayDevice.getDeviceName(),
-                manualMode,
                 "LineDisplay"
         );
     }
 
     public boolean isManualMode() {
-        return manualMode;
+        return true;
     }
 }

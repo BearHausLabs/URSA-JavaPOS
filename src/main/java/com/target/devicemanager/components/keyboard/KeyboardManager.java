@@ -11,8 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -22,7 +20,6 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.Lock;
 
-@EnableScheduling
 @EnableCaching
 public class KeyboardManager {
 
@@ -31,8 +28,6 @@ public class KeyboardManager {
 
     private final KeyboardDevice keyboardDevice;
     private final Lock keyboardLock;
-    private ConnectEnum connectStatus = ConnectEnum.FIRST_CONNECT;
-    private boolean manualMode = false;
     private final List<SseEmitter> eventSubscribers = new CopyOnWriteArrayList<>();
     private static final Logger LOGGER = LoggerFactory.getLogger(KeyboardManager.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of("keyboard", "KeyboardManager", LOGGER);
@@ -59,32 +54,10 @@ public class KeyboardManager {
         this.keyboardDevice.setEventCallback(this::onKeyEvent);
     }
 
-    @Scheduled(fixedDelay = 5000, initialDelay = 5000)
-    public void connect() {
-        if (manualMode) {
-            return;
-        }
-
-        if (keyboardDevice.tryLock()) {
-            try {
-                keyboardDevice.connect();
-            } finally {
-                keyboardDevice.unlock();
-            }
-        }
-
-        if (connectStatus == ConnectEnum.FIRST_CONNECT) {
-            connectStatus = ConnectEnum.CHECK_HEALTH;
-        }
-    }
-
     public void reconnectDevice() throws DeviceException {
         if (keyboardDevice.tryLock()) {
             try {
                 keyboardDevice.disconnect();
-                if (!keyboardDevice.connect()) {
-                    throw new DeviceException(DeviceError.DEVICE_OFFLINE);
-                }
             } finally {
                 keyboardDevice.unlock();
             }
@@ -138,10 +111,6 @@ public class KeyboardManager {
     public DeviceHealthResponse getStatus() {
         try {
             if (cacheManager != null && Objects.requireNonNull(cacheManager.getCache("keyboardHealth")).get("health") != null) {
-                if (connectStatus == ConnectEnum.CHECK_HEALTH) {
-                    connectStatus = ConnectEnum.HEALTH_UPDATED;
-                    return getHealth();
-                }
                 return (DeviceHealthResponse) Objects.requireNonNull(cacheManager.getCache("keyboardHealth")).get("health").get();
             } else {
                 log.success("Not able to retrieve from cache, checking getHealth()", 5);
@@ -155,60 +124,53 @@ public class KeyboardManager {
     // --- Lifecycle methods ---
 
     public void openDevice(String logicalName) throws JposException {
-        manualMode = true;
         keyboardDevice.getDynamicDevice().openDevice(logicalName);
         log.logDeviceEvent("lifecycle_open", "Keyboard", logicalName);
     }
 
     public void claimDevice(int timeout) throws JposException {
-        manualMode = true;
         keyboardDevice.getDynamicDevice().claimDevice(timeout);
         log.logDeviceEvent("lifecycle_claim", "Keyboard", keyboardDevice.getDeviceName());
     }
 
     public void enableDevice() throws JposException {
-        manualMode = true;
         keyboardDevice.getDynamicDevice().enableDevice();
         log.logDeviceEvent("lifecycle_enable", "Keyboard", keyboardDevice.getDeviceName());
     }
 
     public void disableDevice() throws JposException {
-        manualMode = true;
         keyboardDevice.getDynamicDevice().disableDevice();
         log.logDeviceEvent("lifecycle_disable", "Keyboard", keyboardDevice.getDeviceName());
     }
 
     public void releaseDevice() throws JposException {
-        manualMode = true;
         keyboardDevice.getDynamicDevice().releaseDevice();
         log.logDeviceEvent("lifecycle_release", "Keyboard", keyboardDevice.getDeviceName());
     }
 
     public void closeDevice() throws JposException {
-        manualMode = true;
         keyboardDevice.getDynamicDevice().closeDevice();
         log.logDeviceEvent("lifecycle_close", "Keyboard", keyboardDevice.getDeviceName());
     }
 
     public void setAutoMode() {
-        manualMode = false;
-        log.logDeviceEvent("lifecycle_auto", "Keyboard", keyboardDevice.getDeviceName());
+        // No-op: URSA always owns device lifecycle.
+        log.logDeviceEvent("lifecycle_auto_noop", "Keyboard", keyboardDevice.getDeviceName());
     }
 
     public void setManualMode(boolean manual) {
-        manualMode = manual;
+        // No-op: always in manual mode.
     }
 
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 keyboardDevice.getDynamicDevice().getLifecycleState(),
                 keyboardDevice.getDeviceName(),
-                manualMode,
                 "Keyboard"
         );
     }
 
     public boolean isManualMode() {
-        return manualMode;
+        return true;
     }
 }

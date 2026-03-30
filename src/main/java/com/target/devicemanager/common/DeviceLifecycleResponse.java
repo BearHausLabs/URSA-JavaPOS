@@ -10,13 +10,11 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 public class DeviceLifecycleResponse {
     private final DeviceLifecycleState state;
     private final String logicalName;
-    private final boolean manualMode;
     private final String deviceType;
 
-    public DeviceLifecycleResponse(DeviceLifecycleState state, String logicalName, boolean manualMode, String deviceType) {
+    public DeviceLifecycleResponse(DeviceLifecycleState state, String logicalName, String deviceType) {
         this.state = state;
         this.logicalName = logicalName;
-        this.manualMode = manualMode;
         this.deviceType = deviceType;
     }
 
@@ -28,10 +26,6 @@ public class DeviceLifecycleResponse {
         return logicalName;
     }
 
-    public boolean isManualMode() {
-        return manualMode;
-    }
-
     public String getDeviceType() {
         return deviceType;
     }
@@ -41,7 +35,6 @@ public class DeviceLifecycleResponse {
         return "DeviceLifecycleResponse{" +
                 "state=" + state +
                 ", logicalName='" + logicalName + '\'' +
-                ", manualMode=" + manualMode +
                 ", deviceType='" + deviceType + '\'' +
                 '}';
     }

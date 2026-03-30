@@ -17,14 +17,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-@EnableScheduling
 @EnableCaching
 public class MicrManager implements MicrEventListener, ConnectionEventListener {
 
@@ -33,8 +30,6 @@ public class MicrManager implements MicrEventListener, ConnectionEventListener {
 
     private final MicrDevice micrDevice;
     private CompletableFuture<MicrData> micrDataClient = null;
-    private ConnectEnum connectStatus = ConnectEnum.FIRST_CONNECT;
-    private boolean manualMode = false;
     private static final Logger LOGGER = LoggerFactory.getLogger(MicrManager.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getCheckServiceName(), "MicrManager", LOGGER);
 
@@ -57,32 +52,10 @@ public class MicrManager implements MicrEventListener, ConnectionEventListener {
         this.micrDataClient = micrDataClient;
     }
 
-    @Scheduled(fixedDelay = 5000, initialDelay = 5000)
-    public void connect() {
-        if (manualMode) {
-            return;
-        }
-
-        if (micrDevice.tryLock()) {
-            try {
-                micrDevice.connect();
-            } finally {
-                micrDevice.unlock();
-            }
-        }
-
-        if (connectStatus == ConnectEnum.FIRST_CONNECT) {
-            connectStatus = ConnectEnum.CHECK_HEALTH;
-        }
-    }
-
     public void reconnectDevice() throws DeviceException {
         if (micrDevice.tryLock()) {
             try {
                 micrDevice.disconnect();
-                if (!micrDevice.connect()) {
-                    throw new DeviceException(DeviceError.DEVICE_OFFLINE);
-                }
             } finally {
                 micrDevice.unlock();
             }
@@ -166,10 +139,6 @@ public class MicrManager implements MicrEventListener, ConnectionEventListener {
     public DeviceHealthResponse getStatus() {
         try {
             if (cacheManager != null && Objects.requireNonNull(cacheManager.getCache("micrHealth")).get("health") != null) {
-                if (connectStatus == ConnectEnum.CHECK_HEALTH) {
-                    connectStatus = ConnectEnum.HEALTH_UPDATED;
-                    return getHealth();
-                }
                 return (DeviceHealthResponse) Objects.requireNonNull(cacheManager.getCache("micrHealth")).get("health").get();
             } else {
                 log.success("Not able to retrieve from cache, checking getHealth()", 5);
@@ -180,63 +149,56 @@ public class MicrManager implements MicrEventListener, ConnectionEventListener {
         }
     }
 
-    // --- Step 5: Lifecycle methods ---
+    // --- Lifecycle methods ---
 
     public void openDevice(String logicalName) throws JposException {
-        manualMode = true;
         micrDevice.getDynamicDevice().openDevice(logicalName);
         log.logDeviceEvent("lifecycle_open", "MICR", logicalName);
     }
 
     public void claimDevice(int timeout) throws JposException {
-        manualMode = true;
         micrDevice.getDynamicDevice().claimDevice(timeout);
         log.logDeviceEvent("lifecycle_claim", "MICR", micrDevice.getDeviceName());
     }
 
     public void enableDevice() throws JposException {
-        manualMode = true;
         micrDevice.getDynamicDevice().enableDevice();
         log.logDeviceEvent("lifecycle_enable", "MICR", micrDevice.getDeviceName());
     }
 
     public void disableDevice() throws JposException {
-        manualMode = true;
         micrDevice.getDynamicDevice().disableDevice();
         log.logDeviceEvent("lifecycle_disable", "MICR", micrDevice.getDeviceName());
     }
 
     public void releaseDevice() throws JposException {
-        manualMode = true;
         micrDevice.getDynamicDevice().releaseDevice();
         log.logDeviceEvent("lifecycle_release", "MICR", micrDevice.getDeviceName());
     }
 
     public void closeDevice() throws JposException {
-        manualMode = true;
         micrDevice.getDynamicDevice().closeDevice();
         log.logDeviceEvent("lifecycle_close", "MICR", micrDevice.getDeviceName());
     }
 
     public void setAutoMode() {
-        manualMode = false;
-        log.logDeviceEvent("lifecycle_auto", "MICR", micrDevice.getDeviceName());
+        // No-op: URSA always owns device lifecycle.
+        log.logDeviceEvent("lifecycle_auto_noop", "MICR", micrDevice.getDeviceName());
     }
 
     public void setManualMode(boolean manual) {
-        manualMode = manual;
+        // No-op: always in manual mode.
     }
 
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 micrDevice.getDynamicDevice().getLifecycleState(),
                 micrDevice.getDeviceName(),
-                manualMode,
                 "MICR"
         );
     }
 
     public boolean isManualMode() {
-        return manualMode;
+        return true;
     }
 }

@@ -14,8 +14,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,7 +21,6 @@ import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
 
-@EnableScheduling
 @EnableCaching
 public class ScannerManager {
 
@@ -32,8 +29,6 @@ public class ScannerManager {
 
     private final List<? extends ScannerDevice> scanners;
     private final Lock scannerLock;
-    private ConnectEnum connectStatus = ConnectEnum.FIRST_CONNECT;
-    private boolean manualMode = false;
     private static final Logger LOGGER = LoggerFactory.getLogger(ScannerManager.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getScannerServiceName(), "ScannerManager", LOGGER);
     private ExecutorService executor;
@@ -63,50 +58,9 @@ public class ScannerManager {
         this.isTest = isTest;
     }
 
-    @Scheduled(fixedDelay = 5000, initialDelay = 5000)
-    public void connect() {
-        if (manualMode) {
-            return;
-        }
-
-        scanners.forEach(ScannerDevice::connect);
-
-        if (connectStatus == ConnectEnum.FIRST_CONNECT) {
-            for (ScannerDevice scanner : scanners) {
-                if(!scanner.isConnected()) {
-                    log.failure(scanner.getScannerType() + " Failed to Connect", 17, null);
-                }
-            }
-            connectStatus = ConnectEnum.CHECK_HEALTH;
-        }
-    }
-
     public void reconnectScanners() throws DeviceException {
-        List<Callable<Boolean>> taskList = new ArrayList<>();
-        scanners.forEach(scanner -> taskList.add(scanner::reconnect));
-        if(!isTest) {
-            executor = Executors.newFixedThreadPool(taskList.size());
-        }
-        try {
-            List<Future<Boolean>> executorInvoked = executor.invokeAll(taskList);
-            if(!isTest) {
-                results = executorInvoked;
-            }
-            for(Future<Boolean> result: results) {
-                if(!result.get()) {
-                    log.failure("Failed to reconnect scanner.", 17, null);
-                    throw new DeviceException(DeviceError.DEVICE_OFFLINE);
-                }
-            }
-        } catch (ExecutionException exception) {
-            DeviceException deviceException = (DeviceException) exception.getCause();
-            throw deviceException;
-        } catch (InterruptedException interruptedException) {
-            throw new DeviceException(DeviceError.UNEXPECTED_ERROR);
-        } finally {
-            if (executor != null) {
-                executor.shutdown();
-            }
+        for (ScannerDevice scanner : scanners) {
+            scanner.getDynamicDevice().disconnect();
         }
     }
 
@@ -227,10 +181,6 @@ public class ScannerManager {
     public List<DeviceHealthResponse> getStatus() {
         try {
             if (cacheManager != null && Objects.requireNonNull(cacheManager.getCache("scannerHealth")).get("health") != null) {
-                if (connectStatus == ConnectEnum.CHECK_HEALTH) {
-                    connectStatus = ConnectEnum.HEALTH_UPDATED;
-                    return getHealth(ScannerType.BOTH);
-                }
                 return (List<DeviceHealthResponse>) Objects.requireNonNull(cacheManager.getCache("scannerHealth")).get("health").get();
             } else {
                 log.success("Not able to retrieve from cache, checking getHealth()", 6);
@@ -279,8 +229,7 @@ public class ScannerManager {
         log.success("disableScanner(out)", 1);
     }
 
-    // --- Step 5: Lifecycle methods ---
-    // Scanner has multiple devices; lifecycle operates on a specific type.
+    // --- Lifecycle methods ---
 
     private ScannerDevice findScanner(ScannerType scannerType) {
         for (ScannerDevice scanner : scanners) {
@@ -292,7 +241,6 @@ public class ScannerManager {
     }
 
     public void openDevice(String logicalName, ScannerType scannerType) throws JposException {
-        manualMode = true;
         ScannerDevice scanner = findScanner(scannerType);
         if (scanner == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
@@ -302,7 +250,6 @@ public class ScannerManager {
     }
 
     public void claimDevice(int timeout, ScannerType scannerType) throws JposException {
-        manualMode = true;
         ScannerDevice scanner = findScanner(scannerType);
         if (scanner == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
@@ -312,7 +259,6 @@ public class ScannerManager {
     }
 
     public void enableDevice(ScannerType scannerType) throws JposException {
-        manualMode = true;
         ScannerDevice scanner = findScanner(scannerType);
         if (scanner == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
@@ -322,7 +268,6 @@ public class ScannerManager {
     }
 
     public void disableDevice(ScannerType scannerType) throws JposException {
-        manualMode = true;
         ScannerDevice scanner = findScanner(scannerType);
         if (scanner == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
@@ -332,7 +277,6 @@ public class ScannerManager {
     }
 
     public void releaseDevice(ScannerType scannerType) throws JposException {
-        manualMode = true;
         ScannerDevice scanner = findScanner(scannerType);
         if (scanner == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
@@ -342,7 +286,6 @@ public class ScannerManager {
     }
 
     public void closeDevice(ScannerType scannerType) throws JposException {
-        manualMode = true;
         ScannerDevice scanner = findScanner(scannerType);
         if (scanner == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
@@ -352,12 +295,12 @@ public class ScannerManager {
     }
 
     public void setAutoMode() {
-        manualMode = false;
-        log.logDeviceEvent("lifecycle_auto", "Scanner", "all");
+        // No-op: URSA always owns device lifecycle.
+        log.logDeviceEvent("lifecycle_auto_noop", "Scanner", "all");
     }
 
     public void setManualMode(boolean manual) {
-        manualMode = manual;
+        // No-op: always in manual mode.
     }
 
     public List<DeviceLifecycleResponse> getLifecycleStatus() {
@@ -366,7 +309,6 @@ public class ScannerManager {
             responses.add(new DeviceLifecycleResponse(
                     scanner.getDynamicDevice().getLifecycleState(),
                     scanner.getDeviceName(),
-                    manualMode,
                     "Scanner/" + scanner.getScannerType()
             ));
         }
@@ -374,6 +316,6 @@ public class ScannerManager {
     }
 
     public boolean isManualMode() {
-        return manualMode;
+        return true;
     }
 }

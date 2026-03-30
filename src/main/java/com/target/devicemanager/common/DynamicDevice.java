@@ -10,7 +10,6 @@ public class DynamicDevice<DEVICE extends BaseJposControl> {
     private final DEVICE device;
     private final DeviceConnector<DEVICE> deviceConnector;
     private final DevicePower devicePower;
-    private int connectCount = 0;
     private static final Logger LOGGER = LoggerFactory.getLogger(DynamicDevice.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getCommonServiceName(), "DynamicDevice", LOGGER);
 
@@ -19,6 +18,16 @@ public class DynamicDevice<DEVICE extends BaseJposControl> {
         CONNECTED,
         NOT_CONNECTED,
         ALREADY_CONNECTED
+    }
+
+    /**
+     * No-op connect stub. Auto-discovery has been removed.
+     * URSA controls device lifecycle via open/claim/enable endpoints.
+     * This method exists only to keep existing *Device.java files compiling;
+     * it always returns NOT_CONNECTED.
+     */
+    public ConnectionResult connect() {
+        return ConnectionResult.NOT_CONNECTED;
     }
 
     public DynamicDevice(DEVICE device, DevicePower devicePower, DeviceConnector<DEVICE> deviceConnector) {
@@ -37,42 +46,9 @@ public class DynamicDevice<DEVICE extends BaseJposControl> {
         this.deviceConnector = deviceConnector;
     }
 
-    public ConnectionResult connect() {
-        connectCount++;
-        synchronized (device) {
-            if (isConnected()) {
-                connectCount = 0;
-                return ConnectionResult.ALREADY_CONNECTED;
-            }
-            boolean deviceFound = deviceConnector.discoverConnectedDevice();
-            if (!deviceFound) {
-                log.failure(getDeviceName() + " Connect Failed: " + connectCount, 1 , null);
-                return ConnectionResult.NOT_CONNECTED;
-            }
-
-            devicePower.enablePowerNotification(device);
-
-            // When skipTestCycle is true, discovery leaves the device at CLAIMED.
-            // Enable it here so auto-mode reaches ENABLED through one clean path,
-            // avoiding the test-enable/disable gap that causes vendor driver issues
-            // (e.g. Epson "Power offline" race condition).
-            if (deviceConnector.isSkipTestCycle()) {
-                try {
-                    device.setDeviceEnabled(true);
-                    log.success(getDeviceName() + " auto-enabled (skipTestCycle)", 9);
-                } catch (JposException jposException) {
-                    log.failure(getDeviceName() + " auto-enable failed: " + jposException.getErrorCode(), 13, jposException);
-                }
-            }
-        }
-        log.success(getDeviceName() + " Connect Succeeded: " + connectCount, 9);
-        connectCount = 0;
-        return ConnectionResult.CONNECTED;
-    }
-
     public void disconnect() {
         synchronized (device) {
-            // Step 1b: skip release if skipClaim is set on the connector
+            // Skip release if skipClaim is set on the connector
             if (!deviceConnector.isSkipClaim()) {
                 try {
                     device.release();
@@ -97,7 +73,7 @@ public class DynamicDevice<DEVICE extends BaseJposControl> {
                 return false;
             }
             try {
-                // Step 1b: if skipClaim, don't check getClaimed()
+                // If skipClaim, don't check getClaimed()
                 if (!deviceConnector.isSkipClaim() && !device.getClaimed()) {
                     return false;
                 }
@@ -120,7 +96,7 @@ public class DynamicDevice<DEVICE extends BaseJposControl> {
         return deviceConnector.getConnectedDeviceName();
     }
 
-    // --- Step 5b: Lifecycle pass-through to DeviceConnector ---
+    // --- Lifecycle pass-through to DeviceConnector ---
 
     public DeviceConnector<DEVICE> getDeviceConnector() {
         return deviceConnector;

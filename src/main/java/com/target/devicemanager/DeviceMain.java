@@ -12,30 +12,18 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @SpringBootApplication
-@EnableScheduling
 public class DeviceMain {
     private static final Logger LOGGER = LoggerFactory.getLogger(DeviceMain.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getDeviceManagerServiceName(), "DeviceMain", LOGGER);
-
-    /** Known locations for possum-config.yml (in priority order). */
-    private static final String[] CONFIG_LOCATIONS = {
-            "config/possum-config.yml",
-            "possum-config.yml"
-    };
 
     public static void main(String[] args) {
         // JCL configuration: let deploy-time jpos/res/jpos.properties control
@@ -71,62 +59,18 @@ public class DeviceMain {
                         "JCL will rely on jpos/res/jpos.properties for populator file paths.");
             }
         }
+
         // Vendor jpos.xml merge into devcon.xml.
-        // Canonical merge is done by configure-javapos.ps1 at deploy time.
-        // This Java-side merge is a fallback for environments where the PS1
-        // script hasn't run (e.g. manual dev setups). Gated behind env var
-        // to prevent dual-merge drift with the PowerShell version.
-        if ("true".equalsIgnoreCase(System.getenv("URSA_MERGE_VENDOR"))) {
-            mergeVendorJposEntries();
-        } else {
-            LOGGER.info("Vendor jpos.xml merge skipped (URSA_MERGE_VENDOR not set). " +
-                    "Using devcon.xml as-is from configure-javapos.ps1.");
-        }
+        // Always merge vendor entries so all devices are discoverable.
+        mergeVendorJposEntries();
 
         System.setProperty("jpos.util.tracing.TurnOnAllNamedTracers", "OFF");
         ConfigurableApplicationContext dmcontext = SpringApplication.run(DeviceMain.class,args);
     }
 
     @EventListener(ApplicationReadyEvent.class)
-    public void crashCountInStartup() {
-        // Log JCL configuration state for diagnostics
+    public void onReady() {
         logJclDiagnostics();
-
-        Boolean isSimulationMode = Boolean.parseBoolean(System.getProperty("useSimulators"));
-        if(!isSimulationMode) {
-            try {
-                String logPath = System.getenv("POSSUM_LOG_PATH");
-                if (logPath == null) {
-                    log.success("Setting default log path for POSSUM.", 5);
-                    logPath = "/var/log/target/possum";
-                }
-
-                //get the latest dump file also log the crash count since rebuild
-                File latestLogFile = getLatestLogFile(logPath + "/CrashLog");
-
-                if (latestLogFile != null) {
-                    String coreDump = getCoreDumpInfo(latestLogFile);
-                    if (coreDump != null && coreDump.length() > 0 ) {
-                        log.success(coreDump, 9);
-                    }
-                }
-
-                // count crash file since reboot
-                File crashCount = new File(logPath + "/crashCount.log");
-                if (crashCount.exists() && crashCount.isFile()) {
-                    try {
-                        String count = (new BufferedReader(new FileReader(crashCount))).readLine();
-                        if (!count.equals("0")) {
-                            log.success("Current POSSUM start count after reboot is: " + count, 9);
-                        }
-                    } catch (IOException ioException) {
-                        log.failure("Error reading crash count", 17, ioException);
-                    }
-                }
-            } catch (Exception exception) {
-                log.failure("Error getting crash log file path", 17, exception);
-            }
-        }
     }
 
     /**
@@ -175,76 +119,15 @@ public class DeviceMain {
         }
     }
 
-    public File getLatestLogFile(String filePath) {
-        //get the latest dump file
-        File crashdir = new File(filePath);
-        File[] files = crashdir.listFiles();
-        File lastModifiedFile = null;
-        if (files.length > 0) {
-            log.success("Current POSSUM crash count since rebuild is: " + files.length, 9);
-
-            //find the latest log file
-            lastModifiedFile = files[0];
-            for (int i = 1; i < files.length; i++) {
-                if (lastModifiedFile.lastModified() < files[i].lastModified()) {
-                    lastModifiedFile = files[i];
-                }
-            }
-        }
-        return lastModifiedFile;
-    }
-
-    public String getCoreDumpInfo (File logfile){
-        String coreDumpInfo = null;
-        try {
-            BufferedReader reader = new BufferedReader(new FileReader(logfile));
-            String probFrame = "";
-            String crashTime = "";
-            String line;
-            while (null != (line = reader.readLine())) {
-                if (line.contains("Problematic frame:")) {
-                    probFrame = reader.readLine();
-                }
-                if (line.contains("Time:")){
-                    crashTime = line;
-                    break;
-                }
-            }
-            reader.close();
-
-            if (crashTime != "") {
-                String time =  parseAndFormatCrashTime(crashTime);
-
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MMM-dd HH:mm:ss");
-                try {
-                    LocalDateTime localTimeObj = LocalDateTime.parse(time, formatter);
-
-                    Duration duration = Duration.between(LocalDateTime.now(), localTimeObj);
-                    long diff = Math.abs(duration.toMinutes());
-                    if (diff <= 120) {
-                        coreDumpInfo = "core dump happened within 2 hours - " + diff + " mins ago - " + logfile.getName() + " : " + probFrame + "; Crash " + crashTime;
-                    } else {
-                        coreDumpInfo = "core dump happened  - " + diff + " mins ago - " + logfile.getName() + " : " + probFrame + "; Crash " + crashTime;
-                    }
-                } catch (DateTimeParseException exp) {
-                    log.failure("Failed to parsing the crash time: " + exp.getMessage(), 17, exp);
-                }
-            }
-        } catch (IOException ioException) {
-            log.failure("Failed reading core dump file" + logfile.getName() + ioException.getMessage(), 17, ioException);
-        }
-        return coreDumpInfo;
-    }
-
     // -------------------------------------------------------------------------
-    // Vendor jpos.xml merge — runs before Spring Boot starts
+    // Vendor jpos.xml merge -- runs before Spring Boot starts
     // -------------------------------------------------------------------------
 
     /**
-     * Reads vendor jpos.xml paths from possum-config.yml (or POSSUM_VENDOR_JPOS_PATHS
-     * env var), parses JposEntry elements from each, and merges them into config/devcon.xml.
+     * Reads vendor jpos.xml paths from POSSUM_VENDOR_JPOS_PATHS env var,
+     * parses JposEntry elements from each, and merges them into config/devcon.xml.
      * Scanner entries without a deviceType property get one injected automatically.
-     * Duplicates (by logicalName) are skipped — existing devcon.xml entries win.
+     * Duplicates (by logicalName) are skipped -- existing devcon.xml entries win.
      *
      * This runs in main() before Spring Boot starts, so the JCL populator reads
      * a complete device registry on first load.
@@ -252,13 +135,13 @@ public class DeviceMain {
     private static void mergeVendorJposEntries() {
         File devconFile = new File("config/devcon.xml");
         if (!devconFile.exists()) {
-            LOGGER.info("config/devcon.xml not found — skipping vendor merge");
+            LOGGER.info("config/devcon.xml not found -- skipping vendor merge");
             return;
         }
 
         List<String> vendorPaths = getVendorJposPaths();
         if (vendorPaths.isEmpty()) {
-            LOGGER.info("No vendor jpos.xml paths configured — skipping vendor merge");
+            LOGGER.info("No vendor jpos.xml paths configured -- skipping vendor merge");
             return;
         }
 
@@ -311,12 +194,9 @@ public class DeviceMain {
     }
 
     /**
-     * Read vendor jpos.xml paths from config. Priority:
-     * 1. POSSUM_VENDOR_JPOS_PATHS env var (semicolon-delimited)
-     * 2. possum.vendor-jpos-paths in possum-config.yml
+     * Read vendor jpos.xml paths from POSSUM_VENDOR_JPOS_PATHS env var (semicolon-delimited).
      */
     private static List<String> getVendorJposPaths() {
-        // Check env var first
         String envPaths = System.getenv("POSSUM_VENDOR_JPOS_PATHS");
         if (envPaths != null && !envPaths.isBlank()) {
             List<String> paths = new ArrayList<>();
@@ -326,49 +206,6 @@ public class DeviceMain {
             }
             LOGGER.info("Vendor jpos.xml paths from POSSUM_VENDOR_JPOS_PATHS: {}", paths);
             return paths;
-        }
-
-        // Parse from possum-config.yml (simple YAML list extraction)
-        for (String configLoc : CONFIG_LOCATIONS) {
-            File configFile = new File(configLoc);
-            if (!configFile.exists()) continue;
-
-            try {
-                List<String> lines = Files.readAllLines(configFile.toPath(), StandardCharsets.UTF_8);
-                List<String> paths = new ArrayList<>();
-                boolean inVendorPaths = false;
-
-                for (String line : lines) {
-                    String trimmed = line.trim();
-                    // Detect the vendor-jpos-paths key
-                    if (trimmed.startsWith("vendor-jpos-paths:")) {
-                        inVendorPaths = true;
-                        continue;
-                    }
-                    if (inVendorPaths) {
-                        if (trimmed.startsWith("- ")) {
-                            // YAML list item
-                            String path = trimmed.substring(2).trim();
-                            // Strip quotes if present
-                            if ((path.startsWith("\"") && path.endsWith("\"")) ||
-                                    (path.startsWith("'") && path.endsWith("'"))) {
-                                path = path.substring(1, path.length() - 1);
-                            }
-                            if (!path.isEmpty()) paths.add(path);
-                        } else if (!trimmed.isEmpty() && !trimmed.startsWith("#")) {
-                            // Non-list, non-comment line — we've left the list
-                            break;
-                        }
-                    }
-                }
-
-                if (!paths.isEmpty()) {
-                    LOGGER.info("Vendor jpos.xml paths from {}: {}", configLoc, paths);
-                    return paths;
-                }
-            } catch (IOException e) {
-                LOGGER.warn("Failed to read {}: {}", configLoc, e.getMessage());
-            }
         }
 
         return Collections.emptyList();
@@ -431,27 +268,5 @@ public class DeviceMain {
 
         sb.append("</JposEntries>\n");
         Files.writeString(devconFile.toPath(), sb.toString(), StandardCharsets.UTF_8);
-    }
-
-    public String parseAndFormatCrashTime(String crashTime) {
-        //parse the crash time
-        String yyyy = "";
-        String mon = "";
-        String dd = "";
-        String hhmmss = "";
-        String pattern = "Time: \\S{3}\\s+(\\S{3})\\s+(\\d+)\\s+(.*)\\s+(\\d{4})\\s+\\S{3} elapsed";
-        Pattern p = Pattern.compile(pattern);
-        Matcher m  = p.matcher(crashTime);
-        if (m.find( )) {
-            mon =  m.group(1);
-            dd = m.group(2);
-            if (dd.length() == 1) {
-                dd = "0"+dd;
-            }
-            hhmmss = m.group(3);
-            yyyy = m.group(4);
-
-        }
-        return yyyy + "-" + mon + "-" +dd + " " + hhmmss;
     }
 }

@@ -11,8 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -22,7 +20,6 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.Lock;
 
-@EnableScheduling
 @EnableCaching
 public class KeylockManager {
 
@@ -31,8 +28,6 @@ public class KeylockManager {
 
     private final KeylockDevice keylockDevice;
     private final Lock keylockLock;
-    private ConnectEnum connectStatus = ConnectEnum.FIRST_CONNECT;
-    private boolean manualMode = false;
     private final List<SseEmitter> eventSubscribers = new CopyOnWriteArrayList<>();
     private static final Logger LOGGER = LoggerFactory.getLogger(KeylockManager.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of("keylock", "KeylockManager", LOGGER);
@@ -59,32 +54,10 @@ public class KeylockManager {
         this.keylockDevice.setPositionChangeCallback(this::onPositionChange);
     }
 
-    @Scheduled(fixedDelay = 5000, initialDelay = 5000)
-    public void connect() {
-        if (manualMode) {
-            return;
-        }
-
-        if (keylockDevice.tryLock()) {
-            try {
-                keylockDevice.connect();
-            } finally {
-                keylockDevice.unlock();
-            }
-        }
-
-        if (connectStatus == ConnectEnum.FIRST_CONNECT) {
-            connectStatus = ConnectEnum.CHECK_HEALTH;
-        }
-    }
-
     public void reconnectDevice() throws DeviceException {
         if (keylockDevice.tryLock()) {
             try {
                 keylockDevice.disconnect();
-                if (!keylockDevice.connect()) {
-                    throw new DeviceException(DeviceError.DEVICE_OFFLINE);
-                }
             } finally {
                 keylockDevice.unlock();
             }
@@ -125,10 +98,6 @@ public class KeylockManager {
     public DeviceHealthResponse getStatus() {
         try {
             if (cacheManager != null && Objects.requireNonNull(cacheManager.getCache("keylockHealth")).get("health") != null) {
-                if (connectStatus == ConnectEnum.CHECK_HEALTH) {
-                    connectStatus = ConnectEnum.HEALTH_UPDATED;
-                    return getHealth();
-                }
                 return (DeviceHealthResponse) Objects.requireNonNull(cacheManager.getCache("keylockHealth")).get("health").get();
             } else {
                 log.success("Not able to retrieve from cache, checking getHealth()", 5);
@@ -182,60 +151,53 @@ public class KeylockManager {
     // --- Lifecycle methods ---
 
     public void openDevice(String logicalName) throws JposException {
-        manualMode = true;
         keylockDevice.getDynamicDevice().openDevice(logicalName);
         log.logDeviceEvent("lifecycle_open", "Keylock", logicalName);
     }
 
     public void claimDevice(int timeout) throws JposException {
-        manualMode = true;
         keylockDevice.getDynamicDevice().claimDevice(timeout);
         log.logDeviceEvent("lifecycle_claim", "Keylock", keylockDevice.getDeviceName());
     }
 
     public void enableDevice() throws JposException {
-        manualMode = true;
         keylockDevice.getDynamicDevice().enableDevice();
         log.logDeviceEvent("lifecycle_enable", "Keylock", keylockDevice.getDeviceName());
     }
 
     public void disableDevice() throws JposException {
-        manualMode = true;
         keylockDevice.getDynamicDevice().disableDevice();
         log.logDeviceEvent("lifecycle_disable", "Keylock", keylockDevice.getDeviceName());
     }
 
     public void releaseDevice() throws JposException {
-        manualMode = true;
         keylockDevice.getDynamicDevice().releaseDevice();
         log.logDeviceEvent("lifecycle_release", "Keylock", keylockDevice.getDeviceName());
     }
 
     public void closeDevice() throws JposException {
-        manualMode = true;
         keylockDevice.getDynamicDevice().closeDevice();
         log.logDeviceEvent("lifecycle_close", "Keylock", keylockDevice.getDeviceName());
     }
 
     public void setAutoMode() {
-        manualMode = false;
-        log.logDeviceEvent("lifecycle_auto", "Keylock", keylockDevice.getDeviceName());
+        // No-op: URSA always owns device lifecycle.
+        log.logDeviceEvent("lifecycle_auto_noop", "Keylock", keylockDevice.getDeviceName());
     }
 
     public void setManualMode(boolean manual) {
-        manualMode = manual;
+        // No-op: always in manual mode.
     }
 
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 keylockDevice.getDynamicDevice().getLifecycleState(),
                 keylockDevice.getDeviceName(),
-                manualMode,
                 "Keylock"
         );
     }
 
     public boolean isManualMode() {
-        return manualMode;
+        return true;
     }
 }

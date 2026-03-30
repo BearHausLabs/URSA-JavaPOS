@@ -12,16 +12,6 @@ public class SimulatedDynamicDevice<T extends BaseJposControl> extends DynamicDe
     }
 
     @Override
-    public ConnectionResult connect() {
-        if (isConnected()) {
-            return ConnectionResult.CONNECTED;
-        }
-        else {
-            return ConnectionResult.NOT_CONNECTED;
-        }
-    }
-
-    @Override
     public boolean isConnected() {
         return simulatedDevice.getState() == JposConst.JPOS_S_IDLE;
     }

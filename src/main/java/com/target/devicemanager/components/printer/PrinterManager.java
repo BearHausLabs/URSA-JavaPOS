@@ -16,15 +16,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
 
-@EnableScheduling
 @EnableCaching
 public class PrinterManager {
 
@@ -34,8 +31,6 @@ public class PrinterManager {
     private final PrinterDevice printerDevice;
     private final Lock printerLock;
     private static final int PRINTER_TIMEOUT = 10;  // Timeout value for printContent call in seconds
-    private ConnectEnum connectStatus = ConnectEnum.FIRST_CONNECT;
-    private boolean manualMode = false;
     private static final Logger LOGGER = LoggerFactory.getLogger(PrinterManager.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getPrinterServiceName(), "PrinterManager", LOGGER);
 
@@ -59,32 +54,10 @@ public class PrinterManager {
         }
     }
 
-    @Scheduled(fixedDelay = 5000, initialDelay = 5000)
-    public void connect() {
-        if (manualMode) {
-            return;
-        }
-
-        if (printerDevice.tryLock()) {
-            try {
-                printerDevice.connect();
-            } finally {
-                printerDevice.unlock();
-            }
-        }
-
-        if (connectStatus == ConnectEnum.FIRST_CONNECT) {
-            connectStatus = ConnectEnum.CHECK_HEALTH;
-        }
-    }
-
     public void reconnectDevice() throws DeviceException {
         if (printerDevice.tryLock()) {
             try {
                 printerDevice.disconnect();
-                if (!printerDevice.connect()) {
-                    throw new DeviceException(DeviceError.DEVICE_OFFLINE);
-                }
             } finally {
                 printerDevice.unlock();
             }
@@ -184,10 +157,6 @@ public class PrinterManager {
     public DeviceHealthResponse getStatus() {
         try {
             if (cacheManager != null && Objects.requireNonNull(cacheManager.getCache("printerHealth")).get("health") != null) {
-                if (connectStatus == ConnectEnum.CHECK_HEALTH) {
-                    connectStatus = ConnectEnum.HEALTH_UPDATED;
-                    return getHealth();
-                }
                 return (DeviceHealthResponse) Objects.requireNonNull(cacheManager.getCache("printerHealth")).get("health").get();
             } else {
                 log.failure("Not able to retrieve from cache, checking getHealth()", 5, null);
@@ -202,63 +171,56 @@ public class PrinterManager {
         return PRINTER_TIMEOUT;
     }
 
-    // --- Step 5: Lifecycle methods ---
+    // --- Lifecycle methods ---
 
     public void openDevice(String logicalName) throws JposException {
-        manualMode = true;
         printerDevice.getDynamicDevice().openDevice(logicalName);
         log.logDeviceEvent("lifecycle_open", "Printer", logicalName);
     }
 
     public void claimDevice(int timeout) throws JposException {
-        manualMode = true;
         printerDevice.getDynamicDevice().claimDevice(timeout);
         log.logDeviceEvent("lifecycle_claim", "Printer", printerDevice.getDeviceName());
     }
 
     public void enableDevice() throws JposException {
-        manualMode = true;
         printerDevice.getDynamicDevice().enableDevice();
         log.logDeviceEvent("lifecycle_enable", "Printer", printerDevice.getDeviceName());
     }
 
     public void disableDevice() throws JposException {
-        manualMode = true;
         printerDevice.getDynamicDevice().disableDevice();
         log.logDeviceEvent("lifecycle_disable", "Printer", printerDevice.getDeviceName());
     }
 
     public void releaseDevice() throws JposException {
-        manualMode = true;
         printerDevice.getDynamicDevice().releaseDevice();
         log.logDeviceEvent("lifecycle_release", "Printer", printerDevice.getDeviceName());
     }
 
     public void closeDevice() throws JposException {
-        manualMode = true;
         printerDevice.getDynamicDevice().closeDevice();
         log.logDeviceEvent("lifecycle_close", "Printer", printerDevice.getDeviceName());
     }
 
     public void setAutoMode() {
-        manualMode = false;
-        log.logDeviceEvent("lifecycle_auto", "Printer", printerDevice.getDeviceName());
+        // No-op: URSA always owns device lifecycle. Kept for API compatibility.
+        log.logDeviceEvent("lifecycle_auto_noop", "Printer", printerDevice.getDeviceName());
     }
 
     public void setManualMode(boolean manual) {
-        manualMode = manual;
+        // No-op: always in manual mode. Kept for API compatibility.
     }
 
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 printerDevice.getDynamicDevice().getLifecycleState(),
                 printerDevice.getDeviceName(),
-                manualMode,
                 "Printer"
         );
     }
 
     public boolean isManualMode() {
-        return manualMode;
+        return true;
     }
 }

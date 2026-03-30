@@ -11,8 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Profile;
-import org.springframework.scheduling.annotation.EnableScheduling;
-import org.springframework.scheduling.annotation.Scheduled;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +18,6 @@ import java.util.Objects;
 import java.util.concurrent.locks.Lock;
 
 @Profile({"local", "dev", "prod"})
-@EnableScheduling
 @EnableCaching
 public class CashDrawerManager {
 
@@ -29,8 +26,6 @@ public class CashDrawerManager {
 
     private final List<? extends CashDrawerDevice> cashDrawers;
     private final Lock cashDrawerLock;
-    private ConnectEnum connectStatus = ConnectEnum.FIRST_CONNECT;
-    private boolean manualMode = false;
     private static final Logger LOGGER = LoggerFactory.getLogger(CashDrawerManager.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getCashDrawerServiceName(), "CashDrawerManager", LOGGER);
 
@@ -53,34 +48,8 @@ public class CashDrawerManager {
         }
     }
 
-    @Scheduled(fixedDelay = 5000, initialDelay = 5000)
-    public void connect() {
-        if (manualMode) {
-            return;
-        }
-
-        for (CashDrawerDevice drawer : cashDrawers) {
-            if (drawer.tryLock()) {
-                try {
-                    drawer.connect();
-                } finally {
-                    drawer.unlock();
-                }
-            }
-        }
-
-        if (connectStatus == ConnectEnum.FIRST_CONNECT) {
-            for (CashDrawerDevice drawer : cashDrawers) {
-                if (!drawer.isConnected()) {
-                    log.failure("Drawer " + drawer.getDrawerId() + " Cash Drawer Failed to Connect", 17, null);
-                }
-            }
-            connectStatus = ConnectEnum.CHECK_HEALTH;
-        }
-    }
-
     /**
-     * Reconnect all drawers.
+     * Reconnect all drawers (disconnect only -- URSA re-opens via lifecycle endpoints).
      */
     public void reconnectDevice() throws DeviceException {
         for (CashDrawerDevice drawer : cashDrawers) {
@@ -103,9 +72,6 @@ public class CashDrawerManager {
         if (drawer.tryLock()) {
             try {
                 drawer.disconnect();
-                if (!drawer.connect()) {
-                    throw new DeviceException(DeviceError.DEVICE_OFFLINE);
-                }
             } finally {
                 drawer.unlock();
             }
@@ -191,10 +157,6 @@ public class CashDrawerManager {
     public DeviceHealthResponse getStatus() {
         try {
             if (cacheManager != null && Objects.requireNonNull(cacheManager.getCache("cashDrawerHealth")).get("health_1") != null) {
-                if (connectStatus == ConnectEnum.CHECK_HEALTH) {
-                    connectStatus = ConnectEnum.HEALTH_UPDATED;
-                    return getHealth();
-                }
                 return (DeviceHealthResponse) Objects.requireNonNull(cacheManager.getCache("cashDrawerHealth")).get("health_1").get();
             } else {
                 log.success("Not able to retrieve from cache, checking getHealth()", 5);
@@ -224,7 +186,6 @@ public class CashDrawerManager {
     }
 
     public void openDevice(String logicalName, int drawerId) throws JposException {
-        manualMode = true;
         CashDrawerDevice drawer = findDrawer(drawerId);
         if (drawer == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Cash drawer not found: drawer " + drawerId);
@@ -234,7 +195,6 @@ public class CashDrawerManager {
     }
 
     public void claimDevice(int timeout, int drawerId) throws JposException {
-        manualMode = true;
         CashDrawerDevice drawer = findDrawer(drawerId);
         if (drawer == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Cash drawer not found: drawer " + drawerId);
@@ -244,7 +204,6 @@ public class CashDrawerManager {
     }
 
     public void enableDevice(int drawerId) throws JposException {
-        manualMode = true;
         CashDrawerDevice drawer = findDrawer(drawerId);
         if (drawer == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Cash drawer not found: drawer " + drawerId);
@@ -254,7 +213,6 @@ public class CashDrawerManager {
     }
 
     public void disableDevice(int drawerId) throws JposException {
-        manualMode = true;
         CashDrawerDevice drawer = findDrawer(drawerId);
         if (drawer == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Cash drawer not found: drawer " + drawerId);
@@ -264,7 +222,6 @@ public class CashDrawerManager {
     }
 
     public void releaseDevice(int drawerId) throws JposException {
-        manualMode = true;
         CashDrawerDevice drawer = findDrawer(drawerId);
         if (drawer == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Cash drawer not found: drawer " + drawerId);
@@ -274,7 +231,6 @@ public class CashDrawerManager {
     }
 
     public void closeDevice(int drawerId) throws JposException {
-        manualMode = true;
         CashDrawerDevice drawer = findDrawer(drawerId);
         if (drawer == null) {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Cash drawer not found: drawer " + drawerId);
@@ -284,12 +240,12 @@ public class CashDrawerManager {
     }
 
     public void setAutoMode() {
-        manualMode = false;
-        log.logDeviceEvent("lifecycle_auto", "CashDrawer", "all");
+        // No-op: URSA always owns device lifecycle.
+        log.logDeviceEvent("lifecycle_auto_noop", "CashDrawer", "all");
     }
 
     public void setManualMode(boolean manual) {
-        manualMode = manual;
+        // No-op: always in manual mode.
     }
 
     public List<DeviceLifecycleResponse> getLifecycleStatus() {
@@ -298,7 +254,6 @@ public class CashDrawerManager {
             responses.add(new DeviceLifecycleResponse(
                     drawer.getDynamicDevice().getLifecycleState(),
                     drawer.getDeviceName(),
-                    manualMode,
                     "CashDrawer/" + drawer.getDrawerId()
             ));
         }
@@ -306,6 +261,6 @@ public class CashDrawerManager {
     }
 
     public boolean isManualMode() {
-        return manualMode;
+        return true;
     }
 }

@@ -1,7 +1,6 @@
 package com.target.devicemanager.common.discovery;
 
 import com.target.devicemanager.common.StructuredEventLogger;
-import com.target.devicemanager.common.WorkstationConfig;
 import jpos.BaseJposControl;
 import jpos.JposException;
 import jpos.config.JposEntryRegistry;
@@ -9,11 +8,9 @@ import jpos.config.simple.SimpleEntry;
 import jpos.loader.JposServiceLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Service that performs JPOS device discovery by reading devcon.xml/jpos.xml entries
@@ -30,11 +27,7 @@ public class DeviceDiscoveryService {
     private static final int CLAIM_TIMEOUT_MS = 10000;
     private static final int REGISTRY_LOAD_RETRIES = 5;
 
-    private final WorkstationConfig workstationConfig;
-
-    @Autowired
-    public DeviceDiscoveryService(WorkstationConfig workstationConfig) {
-        this.workstationConfig = workstationConfig;
+    public DeviceDiscoveryService() {
     }
 
     /**
@@ -84,9 +77,7 @@ public class DeviceDiscoveryService {
             return DeviceTestResult.failed(logicalName, "unknown", "Logical name not found in JPOS registry");
         }
 
-        // Create a generic device control for testing -- use CashDrawer as a baseline JPOS control
-        // For a real test, we'd need the right control type per category, but open/claim/enable
-        // works the same way for all JPOS controls at the BaseJposControl level.
+        // Create a generic device control for testing
         BaseJposControl testControl = createControlForCategory(category);
         if (testControl == null) {
             return DeviceTestResult.failed(logicalName, category, "No test control available for category: " + category);
@@ -166,51 +157,6 @@ public class DeviceDiscoveryService {
         }
 
         return results;
-    }
-
-    /**
-     * Returns the current device configuration from WorkstationConfig.
-     */
-    public Map<String, Object> getCurrentConfig() {
-        Map<String, Object> config = new LinkedHashMap<>();
-        config.put("mode", workstationConfig.getMode());
-
-        Map<String, Object> devices = new LinkedHashMap<>();
-        for (Map.Entry<String, WorkstationConfig.DeviceConfig> entry : workstationConfig.getDevice().entrySet()) {
-            Map<String, Object> deviceInfo = new LinkedHashMap<>();
-            WorkstationConfig.DeviceConfig dc = entry.getValue();
-            deviceInfo.put("enabled", dc.isEnabled());
-
-            if (dc.getLogicalName() != null) {
-                deviceInfo.put("logicalName", dc.getLogicalName());
-            }
-            if (dc.getDrawers() != null) {
-                List<Map<String, Object>> drawersList = new ArrayList<>();
-                for (WorkstationConfig.DrawerEntry drawer : dc.getDrawers()) {
-                    Map<String, Object> drawerInfo = new LinkedHashMap<>();
-                    drawerInfo.put("logicalName", drawer.getLogicalName());
-                    drawerInfo.put("enabled", drawer.isEnabled());
-                    drawersList.add(drawerInfo);
-                }
-                deviceInfo.put("drawers", drawersList);
-            }
-            if (dc.getSubDevices() != null) {
-                Map<String, Object> subDevicesInfo = new LinkedHashMap<>();
-                for (Map.Entry<String, WorkstationConfig.DeviceConfig> sub : dc.getSubDevices().entrySet()) {
-                    Map<String, Object> subInfo = new LinkedHashMap<>();
-                    subInfo.put("enabled", sub.getValue().isEnabled());
-                    if (sub.getValue().getLogicalName() != null) {
-                        subInfo.put("logicalName", sub.getValue().getLogicalName());
-                    }
-                    subDevicesInfo.put(sub.getKey(), subInfo);
-                }
-                deviceInfo.put("subDevices", subDevicesInfo);
-            }
-            devices.put(entry.getKey(), deviceInfo);
-        }
-
-        config.put("device", devices);
-        return config;
     }
 
     // --- Private helpers ---

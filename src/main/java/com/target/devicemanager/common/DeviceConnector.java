@@ -21,16 +21,10 @@ public class DeviceConnector<T extends BaseJposControl> {
     private static final Logger LOGGER = LoggerFactory.getLogger(DeviceConnector.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getCommonServiceName(), "DeviceConnector", LOGGER);
 
-    // Step 1a: preferred logical name — skip auto-discovery if set
-    private String preferredLogicalName;
-
-    // Step 1b: skip claim — for shared devices (e.g. Keylock)
+    // Skip claim -- for shared devices (e.g. Keylock)
     private boolean skipClaim = false;
 
-    // Step 1c: skip test cycle — for devices that don't like enable/disable during discovery
-    private boolean skipTestCycle = false;
-
-    // Step 5b: lifecycle state tracking
+    // Lifecycle state tracking
     private DeviceLifecycleState lifecycleState = DeviceLifecycleState.CLOSED;
 
 
@@ -51,17 +45,7 @@ public class DeviceConnector<T extends BaseJposControl> {
         this.connectedDeviceName = getDefaultDeviceName();
     }
 
-    // --- Step 1a: preferredLogicalName ---
-
-    public void setPreferredLogicalName(String preferredLogicalName) {
-        this.preferredLogicalName = preferredLogicalName;
-    }
-
-    public String getPreferredLogicalName() {
-        return this.preferredLogicalName;
-    }
-
-    // --- Step 1b: skipClaim ---
+    // --- skipClaim ---
 
     public void setSkipClaim(boolean skipClaim) {
         this.skipClaim = skipClaim;
@@ -71,122 +55,17 @@ public class DeviceConnector<T extends BaseJposControl> {
         return this.skipClaim;
     }
 
-    // --- Step 1c: skipTestCycle ---
-
-    public void setSkipTestCycle(boolean skipTestCycle) {
-        this.skipTestCycle = skipTestCycle;
-    }
-
-    public boolean isSkipTestCycle() {
-        return this.skipTestCycle;
-    }
-
-    // --- Step 5b: lifecycle state ---
+    // --- Lifecycle state ---
 
     public DeviceLifecycleState getLifecycleState() {
         return this.lifecycleState;
-    }
-
-    // --- Discovery (modified for Step 1a) ---
-
-    boolean discoverConnectedDevice() {
-        // Step 1a: if a preferred logical name is set, try it first
-        if (preferredLogicalName != null && !preferredLogicalName.isEmpty()) {
-            log.success("attempting preferred logical name '" + preferredLogicalName + "'", 5);
-            clearDeviceCache();
-            boolean isConnected = connect(preferredLogicalName);
-            if (isConnected) {
-                log.success("device found via preferred name '" + connectedDeviceName + "'", 9);
-                return true;
-            }
-            log.failure("preferred logical name '" + preferredLogicalName + "' failed, falling back to auto-discovery", 13, null);
-        }
-
-        List<String> configNames = getLogicalNamesForDeviceType();
-        for (String configName : configNames) {
-            clearDeviceCache(); //this clears any caches that exist (both datalogic and ncr have caches that need to get cleared)
-            boolean isConnected = connect(configName);
-            if (isConnected) {
-                log.success("device found '" + connectedDeviceName + "'", 9);
-                return true;
-            }
-        }
-        return false;
     }
 
     String getConnectedDeviceName() {
         return this.connectedDeviceName;
     }
 
-    private void clearDeviceCache() {
-        synchronized (device) {
-            try {
-                device.setDeviceEnabled(false);
-            } catch (Exception exception) {
-                log.failure("failed to disable device '" + getDefaultDeviceName() + "'" + exception, 1, exception);
-            }
-            if (!skipClaim) {
-                try {
-                    device.release();
-                } catch (Exception exception) {
-                    log.failure("failed to release device '" + getDefaultDeviceName() + "'" + exception, 1, exception);
-                }
-            }
-            try {
-                device.close();
-            } catch (Exception exception) {
-                log.failure("failed to close device '" + getDefaultDeviceName() + "'" + exception, 1, exception);
-            }
-        }
-        lifecycleState = DeviceLifecycleState.CLOSED;
-    }
-
-    private boolean connect(String configName) {
-            synchronized (device) {
-                try {
-                    device.open(configName);
-                } catch (JposException jposException){
-                    log.failure("failed to open " + configName + " with error " + jposException.getErrorCode(), 17, jposException);
-                    return false;
-                }
-                lifecycleState = DeviceLifecycleState.OPENED;
-
-                // Step 1b: skip claim if configured
-                if (!skipClaim) {
-                    try {
-                        device.claim(CLAIM_TIMEOUT_IN_MSEC);
-                    } catch (JposException jposException){
-                        log.failure("failed to claim " + configName + " with error " + jposException.getErrorCode(), 17, jposException);
-                        return false;
-                    }
-                    lifecycleState = DeviceLifecycleState.CLAIMED;
-                }
-
-                // Step 1c: skip enable/disable test cycle if configured
-                if (!skipTestCycle) {
-                    //this is a test, some devices wont signal connected status until enabled
-                    //then disable to put it back in the same state
-                    try {
-                        device.setDeviceEnabled(true);
-                    } catch (JposException jposException){
-                        log.failure("failed to enable " + configName + " with error " + jposException.getErrorCode(), 17, jposException);
-                        return false;
-                    }
-                    try {
-                        device.setDeviceEnabled(false);
-                    } catch (JposException jposException){
-                        log.failure("failed to disable " + configName + " with error " + jposException.getErrorCode(), 17, jposException);
-                        return false;
-                    }
-                }
-
-                this.connectedDeviceName = configName;
-                log.success("successfully connected " + configName, 9);
-                return true;
-            }
-    }
-
-    // --- Step 5b: Individual lifecycle methods ---
+    // --- Individual lifecycle methods ---
 
     /**
      * JPOS open only. Transitions from CLOSED to OPENED.
@@ -273,9 +152,14 @@ public class DeviceConnector<T extends BaseJposControl> {
         }
     }
 
-    // --- Existing private helpers ---
+    // --- Registry helpers ---
 
-    private List<String> getLogicalNamesForDeviceType() {
+    /**
+     * Returns all logical names from the JCL registry matching this device's category
+     * (and optional custom filter). Used by discovery endpoints and URSA to know
+     * what devices are available to open.
+     */
+    public List<String> getLogicalNamesForDeviceType() {
         for(int i = 0; i < RETRY_REGISTRY_LOAD && deviceRegistry.getSize() == 0; i++) {
             log.success("registry load attempt " + (i + 1) + "/" + RETRY_REGISTRY_LOAD + " (size=" + deviceRegistry.getSize() + ")", 5);
             deviceRegistry.load();
@@ -306,12 +190,12 @@ public class DeviceConnector<T extends BaseJposControl> {
 
                     Object filterObj = x.getPropertyValue(filterKey);
                     if (filterObj == null) {
-                        // Log a warning for Scanner entries missing deviceType — common
+                        // Log a warning for Scanner entries missing deviceType -- common
                         // when vendor jpos.xml wasn't merged through configure-io.ps1
                         Object nameObj = x.getPropertyValue("logicalName");
                         String entryName = nameObj != null ? nameObj.toString() : "(unknown)";
                         log.failure("entry '" + entryName + "' missing property '" + filterKey +
-                                "' — skipped (vendor jpos.xml may need deviceType injection)", 9, null);
+                                "' -- skipped (vendor jpos.xml may need deviceType injection)", 9, null);
                         return false;
                     }
                     return filterValue.equals(filterObj.toString());
