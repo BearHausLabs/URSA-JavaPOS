@@ -118,6 +118,134 @@ shadowJar{
     // Additional Spring Boot 3.x META-INF merge targets
     append('META-INF/spring/aot.factories')
     append('META-INF/spring/org.springframework.boot.actuate.autoconfigure.web.ManagementContextConfiguration.imports')
+
+    // ── Post-process: filter AutoConfiguration.imports ──────────────────────
+    // Shadow's append merges imports from ALL Spring Boot starters (autoconfigure,
+    // actuator, etc.). This pulls in autoconfiguration entries for Jetty, Undertow,
+    // WebFlux/Reactive, RSocket, and other frameworks we don't bundle.
+    // When Spring introspects these, NoClassDefFoundError crashes startup
+    // (e.g. ServerProperties$Jetty referencing missing Jetty server classes).
+    // Fix: rewrite the merged file inside the JAR, stripping unbundled entries.
+    doLast {
+        def importsPath = 'META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports'
+        // Patterns matching autoconfiguration classes for unbundled frameworks.
+        // Each is a substring match against fully-qualified class names.
+        def excludePatterns = [
+            // Jetty embedded server (we use Tomcat)
+            'JettyWebServerFactoryCustomizer',
+            'JettyMetricsAutoConfiguration',
+            // Undertow embedded server (we use Tomcat)
+            'UndertowWebServerFactoryCustomizer',
+            // Reactive / WebFlux stack (we use servlet/WebMvc)
+            '.web.reactive.',
+            'ReactiveWebServerFactory',
+            'WebFluxAutoConfiguration',
+            'HttpHandlerAutoConfiguration',
+            'ReactiveMultipartAutoConfiguration',
+            'WebSessionIdResolverAutoConfiguration',
+            'ErrorWebFluxAutoConfiguration',
+            'ClientHttpConnectorAutoConfiguration',
+            'WebClientAutoConfiguration',
+            'ReactiveManagementContextAutoConfiguration',
+            'ReactiveManagementWebSecurityAutoConfiguration',
+            'ReactiveCloudFoundryActuatorAutoConfiguration',
+            'WebFluxObservationAutoConfiguration',
+            'WebSocketReactiveAutoConfiguration',
+            // Reactive health contributors (require reactive drivers)
+            'CassandraReactiveHealthContributor',
+            'CouchbaseReactiveHealthContributor',
+            'ElasticsearchReactiveHealthContributor',
+            'MongoReactiveHealthContributor',
+            'RedisReactiveHealthContributor',
+            // Reactive data repositories
+            'ReactiveElasticsearchRepositories',
+            'CassandraReactiveData',
+            'CassandraReactiveRepositories',
+            'CouchbaseReactiveData',
+            'CouchbaseReactiveRepositories',
+            'MongoReactiveData',
+            'MongoReactiveRepositories',
+            'R2dbcData',
+            'R2dbcRepositories',
+            'R2dbcAutoConfiguration',
+            'R2dbcProxyAutoConfiguration',
+            'R2dbcTransactionManager',
+            'ConnectionFactoryHealthContributor',
+            'R2dbcObservation',
+            'ConnectionPoolMetrics',
+            // Reactive security
+            'ReactiveSecurityAutoConfiguration',
+            'ReactiveUserDetailsService',
+            'ReactiveOAuth2Client',
+            'ReactiveOAuth2ResourceServer',
+            'RSocketSecurity',
+            // RSocket (not used)
+            'RSocketMessaging',
+            'RSocketRequester',
+            'RSocketServer',
+            'RSocketStrategies',
+            'GraphQlRSocket',
+            'RSocketGraphQlClient',
+            // Reactor
+            'ReactorAutoConfiguration',
+            'RedisReactiveAutoConfiguration',
+            'MongoReactiveAutoConfiguration',
+            'PulsarReactiveAutoConfiguration',
+            // Netty (only needed for reactive stack)
+            'NettyAutoConfiguration',
+            // Codecs (reactive HTTP codecs)
+            'CodecsAutoConfiguration',
+            // Neo4j reactive
+            'Neo4jReactiveData',
+            'Neo4jReactiveRepositories',
+            // Reactive Elasticsearch client
+            'ReactiveElasticsearchClient',
+            // GraphQL reactive/WebFlux
+            'GraphQlReactiveQuery',
+            'GraphQlWebFluxSecurity',
+        ]
+
+        ant.jar(destfile: archiveFile.get().asFile, update: true) {
+            // We need to replace the file inside the JAR.
+            // Ant jar update mode adds/replaces entries.
+        }
+
+        // Use Java's ZipFile API to rewrite the JAR entry in-place
+        def jarFile = archiveFile.get().asFile
+        def tmpFile = new File("${jarFile.absolutePath}.tmp")
+
+        new java.util.zip.ZipFile(jarFile).withCloseable { zin ->
+            new java.util.zip.ZipOutputStream(new FileOutputStream(tmpFile)).withCloseable { zout ->
+                zin.entries().each { entry ->
+                    if (entry.name == importsPath) {
+                        // Filter the imports file
+                        def content = zin.getInputStream(entry).text
+                        def filtered = content.readLines().findAll { line ->
+                            def trimmed = line.trim()
+                            if (trimmed.isEmpty()) return false
+                            return !excludePatterns.any { pattern -> trimmed.contains(pattern) }
+                        }.join('\n') + '\n'
+
+                        def newEntry = new java.util.zip.ZipEntry(entry.name)
+                        zout.putNextEntry(newEntry)
+                        zout.write(filtered.getBytes('UTF-8'))
+                        zout.closeEntry()
+                    } else {
+                        zout.putNextEntry(new java.util.zip.ZipEntry(entry))
+                        zin.getInputStream(entry).withCloseable { is ->
+                            zout << is
+                        }
+                        zout.closeEntry()
+                    }
+                }
+            }
+        }
+
+        // Replace original with filtered version
+        jarFile.delete()
+        tmpFile.renameTo(jarFile)
+        logger.lifecycle("Filtered AutoConfiguration.imports: removed entries for Jetty/Undertow/Reactive/RSocket")
+    }
 }
 
 bootJar {
