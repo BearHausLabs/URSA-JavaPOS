@@ -121,11 +121,11 @@ public class CashDrawerDevice implements StatusUpdateListener{
             try {
                 if (!cashDrawer.getDeviceEnabled()) {
                     cashDrawer.setDeviceEnabled(true);
-                    if (cashDrawer.getDrawerOpened()) {
-                        cashDrawerOpen = true;
-                    }
-                    deviceConnected = true;
                 }
+                if (cashDrawer.getDrawerOpened()) {
+                    cashDrawerOpen = true;
+                }
+                deviceConnected = true;
             } catch (JposException jposException) {
                 deviceConnected = false;
                 return false;
@@ -178,44 +178,25 @@ public class CashDrawerDevice implements StatusUpdateListener{
      * Disconnects the cash drawer device
      */
     public void disconnect() {
+        if (areListenersAttached) {
+            detachEventListeners();
+            areListenersAttached = false;
+        }
         if (dynamicCashDrawer.isConnected()) {
-            if (areListenersAttached) {
-                detachEventListeners();
-                areListenersAttached = false;
-            }
             CashDrawer cashDrawer;
             synchronized (cashDrawer = dynamicCashDrawer.getDevice()) {
                 try {
                     if (cashDrawer.getDeviceEnabled()) {
                         cashDrawer.setDeviceEnabled(false);
-                        dynamicCashDrawer.disconnect();
-                        deviceConnected = false;
                     }
                 } catch (JposException jposException) {
-                    log.failure("Cash Drawer Failed to Disconnect", 18, jposException);
+                    log.failure("Cash Drawer Failed to Disable", 18, jposException);
                 }
             }
+            dynamicCashDrawer.disconnect();
         }
-        /*
-        NCR Devices throws exception when setDeviceEnabled is called when device is not connected.
-        Enable the device when device is connected so that we can get status update events.
-        When device is disabled we will not get the status events
-        */
-        CashDrawer cashDrawer;
-        synchronized (cashDrawer = dynamicCashDrawer.getDevice()) {
-            try {
-                if (!cashDrawer.getDeviceEnabled()) {
-                    cashDrawer.setDeviceEnabled(true);
-                    if (cashDrawer.getDrawerOpened()) {
-                        cashDrawerOpen = true;
-                    }
-                    deviceConnected = true;
-                }
-            } catch (JposException jposException) {
-                log.failure("Cash Drawer Failed to Enable Device", 18, jposException);
-                deviceConnected = false;
-            }
-        }
+        deviceConnected = false;
+        cashDrawerOpen = false;
     }
 
 
