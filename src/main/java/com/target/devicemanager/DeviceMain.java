@@ -71,9 +71,17 @@ public class DeviceMain {
                         "JCL will rely on jpos/res/jpos.properties for populator file paths.");
             }
         }
-        // Merge vendor jpos.xml entries into devcon.xml BEFORE Spring starts.
-        // This ensures the JCL populator reads a complete device registry.
-        mergeVendorJposEntries();
+        // Vendor jpos.xml merge into devcon.xml.
+        // Canonical merge is done by configure-javapos.ps1 at deploy time.
+        // This Java-side merge is a fallback for environments where the PS1
+        // script hasn't run (e.g. manual dev setups). Gated behind env var
+        // to prevent dual-merge drift with the PowerShell version.
+        if ("true".equalsIgnoreCase(System.getenv("URSA_MERGE_VENDOR"))) {
+            mergeVendorJposEntries();
+        } else {
+            LOGGER.info("Vendor jpos.xml merge skipped (URSA_MERGE_VENDOR not set). " +
+                    "Using devcon.xml as-is from configure-javapos.ps1.");
+        }
 
         System.setProperty("jpos.util.tracing.TurnOnAllNamedTracers", "OFF");
         ConfigurableApplicationContext dmcontext = SpringApplication.run(DeviceMain.class,args);
