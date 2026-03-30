@@ -54,6 +54,7 @@ public class DeviceMain {
         if (devconPath != null) {
             LOGGER.info("JCL populator file set from POSSUM_DEVCON_PATH: {}", devconPath);
             System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, devconPath);
+            System.setProperty("jpos.config.populator.file.0", devconPath);  // Required for multi-populator JCL (Toshiba)
         } else {
             // Set fallback populator file so SimpleXmlRegPopulator always has a file.
             // If jpos.properties defines populator.file.0, that takes precedence for
@@ -64,6 +65,7 @@ public class DeviceMain {
                 String fallbackPath = fallbackDevcon.getAbsolutePath().replace('\\', '/');
                 LOGGER.info("JCL populator file fallback: {}", fallbackPath);
                 System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, fallbackPath);
+                System.setProperty("jpos.config.populator.file.0", fallbackPath);  // Required for multi-populator JCL (Toshiba)
             } else {
                 LOGGER.warn("No POSSUM_DEVCON_PATH env var and no config/devcon.xml found. " +
                         "JCL will rely on jpos/res/jpos.properties for populator file paths.");
