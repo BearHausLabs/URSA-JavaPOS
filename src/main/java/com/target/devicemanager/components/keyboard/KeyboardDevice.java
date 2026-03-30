@@ -80,8 +80,8 @@ public class KeyboardDevice implements DataListener, StatusUpdateListener {
                     } catch (JposException jposException) {
                         log.failure("Failed to enable data events", 17, jposException);
                     }
-                    deviceConnected = true;
                 }
+                deviceConnected = true;
             } catch (JposException jposException) {
                 deviceConnected = false;
                 return false;
@@ -115,45 +115,25 @@ public class KeyboardDevice implements DataListener, StatusUpdateListener {
      * Disconnects the POS keyboard device.
      */
     public void disconnect() {
+        if (areListenersAttached) {
+            detachEventListeners();
+            areListenersAttached = false;
+        }
         if (dynamicKeyboard.isConnected()) {
-            if (areListenersAttached) {
-                detachEventListeners();
-                areListenersAttached = false;
-            }
             POSKeyboard keyboard;
             synchronized (keyboard = dynamicKeyboard.getDevice()) {
                 try {
                     if (keyboard.getDeviceEnabled()) {
                         keyboard.setDataEventEnabled(false);
                         keyboard.setDeviceEnabled(false);
-                        dynamicKeyboard.disconnect();
-                        deviceConnected = false;
                     }
                 } catch (JposException jposException) {
-                    log.failure("POSKeyboard Failed to Disconnect", 18, jposException);
+                    log.failure("POSKeyboard Failed to Disable", 18, jposException);
                 }
             }
+            dynamicKeyboard.disconnect();
         }
-        /*
-        Re-enable device when not connected to get status update events.
-        */
-        POSKeyboard keyboard;
-        synchronized (keyboard = dynamicKeyboard.getDevice()) {
-            try {
-                if (!keyboard.getDeviceEnabled()) {
-                    keyboard.setDeviceEnabled(true);
-                    try {
-                        keyboard.setDataEventEnabled(true);
-                    } catch (JposException jposException) {
-                        log.failure("Failed to re-enable data events after disconnect", 17, jposException);
-                    }
-                    deviceConnected = true;
-                }
-            } catch (JposException jposException) {
-                log.failure("POSKeyboard Failed to Enable Device", 18, jposException);
-                deviceConnected = false;
-            }
-        }
+        deviceConnected = false;
     }
 
     /**

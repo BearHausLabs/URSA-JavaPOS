@@ -79,8 +79,8 @@ public class KeylockDevice implements StatusUpdateListener {
                         log.failure("Failed to read initial key position", 17, jposException);
                         currentPosition = KeylockConst.LOCK_KP_LOCK;
                     }
-                    deviceConnected = true;
                 }
+                deviceConnected = true;
             } catch (JposException jposException) {
                 deviceConnected = false;
                 return false;
@@ -141,45 +141,24 @@ public class KeylockDevice implements StatusUpdateListener {
      * Disconnects the keylock device.
      */
     public void disconnect() {
+        if (areListenersAttached) {
+            detachEventListeners();
+            areListenersAttached = false;
+        }
         if (dynamicKeylock.isConnected()) {
-            if (areListenersAttached) {
-                detachEventListeners();
-                areListenersAttached = false;
-            }
             Keylock keylock;
             synchronized (keylock = dynamicKeylock.getDevice()) {
                 try {
                     if (keylock.getDeviceEnabled()) {
                         keylock.setDeviceEnabled(false);
-                        dynamicKeylock.disconnect();
-                        deviceConnected = false;
                     }
                 } catch (JposException jposException) {
-                    log.failure("Keylock Failed to Disconnect", 18, jposException);
+                    log.failure("Keylock Failed to Disable", 18, jposException);
                 }
             }
+            dynamicKeylock.disconnect();
         }
-        /*
-        Re-enable device when not connected to get status update events.
-        */
-        Keylock keylock;
-        synchronized (keylock = dynamicKeylock.getDevice()) {
-            try {
-                if (!keylock.getDeviceEnabled()) {
-                    keylock.setDeviceEnabled(true);
-                    try {
-                        currentPosition = keylock.getKeyPosition();
-                    } catch (JposException jposException) {
-                        log.failure("Failed to read key position after re-enable", 17, jposException);
-                        currentPosition = KeylockConst.LOCK_KP_LOCK;
-                    }
-                    deviceConnected = true;
-                }
-            } catch (JposException jposException) {
-                log.failure("Keylock Failed to Enable Device", 18, jposException);
-                deviceConnected = false;
-            }
-        }
+        deviceConnected = false;
     }
 
     /**

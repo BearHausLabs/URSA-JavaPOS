@@ -3,7 +3,6 @@ package com.target.devicemanager.common.discovery;
 import com.target.devicemanager.common.StructuredEventLogger;
 import com.target.devicemanager.common.WorkstationConfig;
 import jpos.BaseJposControl;
-import jpos.CashDrawer;
 import jpos.JposException;
 import jpos.config.JposEntryRegistry;
 import jpos.config.simple.SimpleEntry;

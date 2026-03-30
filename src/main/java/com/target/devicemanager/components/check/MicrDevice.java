@@ -149,11 +149,11 @@ public class MicrDevice implements StatusUpdateListener, ErrorListener, DataList
                 if (micr.getDeviceEnabled()) {
                     micr.setDeviceEnabled(false);
                 }
-                dynamicMicr.disconnect();
-                fireConnectionEvent(false);
             } catch (JposException jposException) {
-                log.failure("Check Reader Failed to Disconnect Device", 17, jposException);
+                log.failure("Check Reader Failed to Disable Device", 17, jposException);
             }
+            dynamicMicr.disconnect();
+            fireConnectionEvent(false);
         }
     }
 

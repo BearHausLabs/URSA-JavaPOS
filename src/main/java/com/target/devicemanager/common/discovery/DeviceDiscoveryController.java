@@ -130,18 +130,16 @@ public class DeviceDiscoveryController {
      */
     @Operation(description = "Save new POSSUM device configuration")
     @PostMapping("/config")
-    public ResponseEntity<Map<String, Object>> saveConfig(@RequestBody DeviceConfigRequest configRequest) {
+    public ResponseEntity<Map<String, String>> saveConfig(@RequestBody DeviceConfigRequest configRequest) {
         String url = "/v1/discovery/config";
         log.successAPI("request", 1, url, null, 0);
 
-        // Log what was received for now
-        log.success("Received device config update request", 9);
+        log.success("Received device config update request (persistence not yet implemented)", 9);
 
-        // TODO: Write configRequest to possum-config.yml file
-        // For now, return the current config as confirmation
-        Map<String, Object> current = discoveryService.getCurrentConfig();
-
-        log.successAPI("response", 1, url, "Config received (persistence pending)", 200);
-        return ResponseEntity.ok(current);
+        log.failureAPI("response", 13, url, "Config persistence not yet implemented", 501, null);
+        return ResponseEntity.status(501).body(Map.of(
+                "error", "Not Implemented",
+                "message", "Config persistence to possum-config.yml is not yet implemented. Use manual file editing for now."
+        ));
     }
 }

@@ -71,8 +71,8 @@ public class MsrDevice {
                     msr.setAutoDisable(false);
                     msr.setDecodeData(true);
                     msr.setDataEventEnabled(true);
-                    deviceConnected = true;
                 }
+                deviceConnected = true;
             } catch (JposException jposException) {
                 log.failure("MSR Failed to enable device", 18, jposException);
                 deviceConnected = false;
@@ -83,24 +83,24 @@ public class MsrDevice {
     }
 
     public void disconnect() {
+        if (areListenersAttached) {
+            detachEventListeners();
+            areListenersAttached = false;
+        }
         if (dynamicMsr.isConnected()) {
-            if (areListenersAttached) {
-                detachEventListeners();
-                areListenersAttached = false;
-            }
             MSR msr;
             synchronized (msr = dynamicMsr.getDevice()) {
                 try {
                     if (msr.getDeviceEnabled()) {
                         msr.setDeviceEnabled(false);
                     }
-                    dynamicMsr.disconnect();
-                    deviceConnected = false;
                 } catch (JposException jposException) {
-                    log.failure("MSR Failed to Disconnect", 18, jposException);
+                    log.failure("MSR Failed to Disable", 18, jposException);
                 }
             }
+            dynamicMsr.disconnect();
         }
+        deviceConnected = false;
     }
 
     /**
