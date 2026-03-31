@@ -192,18 +192,14 @@ public class DeviceConnector<T extends BaseJposControl> {
                     if (filterObj == null) {
                         // Log a warning for Scanner entries missing deviceType -- common
                         // when vendor jpos.xml wasn't merged through configure-io.ps1
-                        Object nameObj = x.getPropertyValue("logicalName");
-                        String entryName = nameObj != null ? nameObj.toString() : "(unknown)";
+                        String entryName = x.getLogicalName();
                         log.failure("entry '" + entryName + "' missing property '" + filterKey +
                                 "' -- skipped (vendor jpos.xml may need deviceType injection)", 9, null);
                         return false;
                     }
                     return filterValue.equals(filterObj.toString());
                 })
-                .map(x -> {
-                    Object nameObj = x.getPropertyValue("logicalName");
-                    return nameObj != null ? nameObj.toString() : null;
-                })
+                .map(SimpleEntry::getLogicalName)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toCollection(ArrayList::new));
 
