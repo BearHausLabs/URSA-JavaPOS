@@ -45,18 +45,6 @@ public class MsrManager {
         }
     }
 
-    public void reconnectDevice() throws DeviceException {
-        if (msrDevice.tryLock()) {
-            try {
-                msrDevice.disconnect();
-            } finally {
-                msrDevice.unlock();
-            }
-        } else {
-            throw new DeviceException(DeviceError.DEVICE_BUSY);
-        }
-    }
-
     public MsrData readCard() throws DeviceException {
         if (!msrLock.tryLock()) {
             throw new DeviceException(MsrError.DEVICE_BUSY);
@@ -134,15 +122,6 @@ public class MsrManager {
         log.logDeviceEvent("lifecycle_close", "MSR", msrDevice.getDeviceName());
     }
 
-    public void setAutoMode() {
-        // No-op: URSA always owns device lifecycle.
-        log.logDeviceEvent("lifecycle_auto_noop", "MSR", msrDevice.getDeviceName());
-    }
-
-    public void setManualMode(boolean manual) {
-        // No-op: always in manual mode.
-    }
-
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 msrDevice.getDynamicDevice().getLifecycleState(),
@@ -151,7 +130,4 @@ public class MsrManager {
         );
     }
 
-    public boolean isManualMode() {
-        return true;
-    }
 }

@@ -44,18 +44,6 @@ public class ToneManager {
         }
     }
 
-    public void reconnectDevice() throws DeviceException {
-        if (toneDevice.tryLock()) {
-            try {
-                toneDevice.disconnect();
-            } finally {
-                toneDevice.unlock();
-            }
-        } else {
-            throw new DeviceException(DeviceError.DEVICE_BUSY);
-        }
-    }
-
     public void playTone(ToneRequest request) throws DeviceException {
         if (!toneLock.tryLock()) {
             throw new DeviceException(DeviceError.DEVICE_BUSY);
@@ -142,15 +130,6 @@ public class ToneManager {
         log.logDeviceEvent("lifecycle_close", "ToneIndicator", toneDevice.getDeviceName());
     }
 
-    public void setAutoMode() {
-        // No-op: URSA always owns device lifecycle.
-        log.logDeviceEvent("lifecycle_auto_noop", "ToneIndicator", toneDevice.getDeviceName());
-    }
-
-    public void setManualMode(boolean manual) {
-        // No-op: always in manual mode.
-    }
-
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 toneDevice.getDynamicDevice().getLifecycleState(),
@@ -159,7 +138,4 @@ public class ToneManager {
         );
     }
 
-    public boolean isManualMode() {
-        return true;
-    }
 }

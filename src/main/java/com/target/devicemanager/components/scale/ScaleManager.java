@@ -74,19 +74,6 @@ public class ScaleManager implements ScaleEventListener, ConnectionEventListener
         }
     }
 
-    public void reconnectDevice() throws DeviceException {
-        if (scaleDevice.tryLock()) {
-            try {
-                scaleDevice.disconnect();
-            } finally {
-                scaleDevice.unlock();
-            }
-        }
-        else {
-            throw new DeviceException(DeviceError.DEVICE_BUSY);
-        }
-    }
-
     void subscribeToLiveWeight(SseEmitter liveWeightEmitter) throws IOException {
         liveWeightEmitter.onCompletion(() -> this.liveWeightClients.remove(liveWeightEmitter));
         liveWeightEmitter.onTimeout(() -> this.liveWeightClients.remove(liveWeightEmitter));
@@ -225,15 +212,6 @@ public class ScaleManager implements ScaleEventListener, ConnectionEventListener
         log.logDeviceEvent("lifecycle_close", "Scale", scaleDevice.getDeviceName());
     }
 
-    public void setAutoMode() {
-        // No-op: URSA always owns device lifecycle.
-        log.logDeviceEvent("lifecycle_auto_noop", "Scale", scaleDevice.getDeviceName());
-    }
-
-    public void setManualMode(boolean manual) {
-        // No-op: always in manual mode.
-    }
-
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 scaleDevice.getDynamicDevice().getLifecycleState(),
@@ -242,7 +220,4 @@ public class ScaleManager implements ScaleEventListener, ConnectionEventListener
         );
     }
 
-    public boolean isManualMode() {
-        return true;
-    }
 }

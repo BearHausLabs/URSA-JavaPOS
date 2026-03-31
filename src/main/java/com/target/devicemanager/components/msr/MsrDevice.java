@@ -48,40 +48,6 @@ public class MsrDevice {
         this.connectLock = connectLock;
     }
 
-    /**
-     * Connects the MSR device. Auto-enables and attaches listeners since MSR
-     * should be continuously listening (matching Encore behavior).
-     */
-    public boolean connect() {
-        DynamicDevice.ConnectionResult connectionResult = dynamicMsr.connect();
-        if (connectionResult == DynamicDevice.ConnectionResult.NOT_CONNECTED) {
-            deviceConnected = false;
-            return false;
-        }
-        if (!areListenersAttached) {
-            attachEventListeners();
-            areListenersAttached = true;
-        }
-
-        MSR msr;
-        synchronized (msr = dynamicMsr.getDevice()) {
-            try {
-                if (!msr.getDeviceEnabled()) {
-                    msr.setDeviceEnabled(true);
-                    msr.setAutoDisable(false);
-                    msr.setDecodeData(true);
-                    msr.setDataEventEnabled(true);
-                }
-                deviceConnected = true;
-            } catch (JposException jposException) {
-                log.failure("MSR Failed to enable device", 18, jposException);
-                deviceConnected = false;
-                return false;
-            }
-        }
-        return true;
-    }
-
     public void disconnect() {
         if (areListenersAttached) {
             detachEventListeners();

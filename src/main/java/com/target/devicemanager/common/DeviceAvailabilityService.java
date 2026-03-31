@@ -55,8 +55,8 @@ public class DeviceAvailabilityService {
         File jsonConfirm = null;
 
         if(applicationConfig != null && applicationConfig.IsSimulationMode()) {
-            deviceAvailabilityResponse.possumversion = "possum_simulator";
-            deviceAvailabilityResponse.confirmversion = "confirm_simulator";
+            deviceAvailabilityResponse.ursaIoVersion = "ursa_simulator";
+            deviceAvailabilityResponse.confirmVersion = "confirm_simulator";
             log.success("Simulator register type: " + simulatorRegisterType, 9);
 
             if (!simulatorRegisterType.equals("default")) {
@@ -109,8 +109,8 @@ public class DeviceAvailabilityService {
                 }
             }
         } else {
-            deviceAvailabilityResponse.possumversion = System.getenv("POSSUM_VERSION");
-            deviceAvailabilityResponse.confirmversion = System.getenv("CONFIRM_VERSION");
+            deviceAvailabilityResponse.ursaIoVersion = System.getenv("URSA_IO_VERSION");
+            deviceAvailabilityResponse.confirmVersion = System.getenv("CONFIRM_VERSION");
             jsonConfirm = new File(confirmOutLoc);
         }
 

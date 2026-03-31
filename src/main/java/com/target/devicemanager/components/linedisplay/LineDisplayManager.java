@@ -43,19 +43,6 @@ public class LineDisplayManager implements ConnectionEventListener {
         }
     }
 
-    public void reconnectDevice() throws DeviceException {
-        if (lineDisplayDevice.tryLock()) {
-            try {
-                lineDisplayDevice.disconnect();
-            } finally {
-                lineDisplayDevice.unlock();
-            }
-        }
-        else {
-            throw new DeviceException(DeviceError.DEVICE_BUSY);
-        }
-    }
-
     public void displayLine(String line1, String line2) throws DeviceException {
         String line1formatted = formatLineText(line1);
         String line2formatted = formatLineText(line2);
@@ -138,15 +125,6 @@ public class LineDisplayManager implements ConnectionEventListener {
         log.logDeviceEvent("lifecycle_close", "LineDisplay", lineDisplayDevice.getDeviceName());
     }
 
-    public void setAutoMode() {
-        // No-op: URSA always owns device lifecycle.
-        log.logDeviceEvent("lifecycle_auto_noop", "LineDisplay", lineDisplayDevice.getDeviceName());
-    }
-
-    public void setManualMode(boolean manual) {
-        // No-op: always in manual mode.
-    }
-
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 lineDisplayDevice.getDynamicDevice().getLifecycleState(),
@@ -155,7 +133,4 @@ public class LineDisplayManager implements ConnectionEventListener {
         );
     }
 
-    public boolean isManualMode() {
-        return true;
-    }
 }

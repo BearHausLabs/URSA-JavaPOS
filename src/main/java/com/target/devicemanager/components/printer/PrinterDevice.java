@@ -63,36 +63,6 @@ public class PrinterDevice implements StatusUpdateListener {
     }
 
     /**
-     * Method name connect. Connecting printer device through service object.
-     * @return connectionSuccessful
-     */
-    public boolean connect() {
-        DynamicDevice.ConnectionResult connectionResult = dynamicPrinter.connect();
-        if (connectionResult == DynamicDevice.ConnectionResult.NOT_CONNECTED) {
-            return false;
-        }
-
-        if (!areListenersAttached) {
-            attachEventListeners();
-            areListenersAttached = true;
-        }
-        POSPrinter printer;
-        synchronized (printer = dynamicPrinter.getDevice()) {
-            try {
-                if (!printer.getDeviceEnabled()) {
-                    printer.setDeviceEnabled(true);
-                }
-                printer.setAsyncMode(true);
-                deviceConnected = true;
-            } catch (JposException jposException) {
-                deviceConnected = false;
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
      * This method is only used to set 'areListenersAttached' for unit testing
      * @param areListenersAttached
      */
@@ -172,7 +142,6 @@ public class PrinterDevice implements StatusUpdateListener {
                         // Throw JPOS extended error JPOS_EPTR_REC_EMPTY
                         throw new JposException(114, 203);
                     }
-                    reconnectR5Printer();
                     printer.transactionPrint(printerStation, POSPrinterConst.PTR_TP_TRANSACTION);
                     for (PrinterContent content : contents) {
                         switch (content.type.toString()) {
@@ -206,16 +175,9 @@ public class PrinterDevice implements StatusUpdateListener {
                 } catch (JposException jposException) {
                     log.failure("Printer Failed to Print Content: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 18, jposException);
 
-                    boolean failureOrDisabledError = jposException.getErrorCode() == 111 || jposException.getErrorCode() == 105;
                     boolean badPrintContentError = jposException.getErrorCode() == 106 || (jposException.getErrorCode() == 114 && jposException.getErrorCodeExtended() == 207);
-                    if ((failureOrDisabledError || badPrintContentError)) {
-                        log.failure("Received Printer " + jposException.getErrorCode() + " error.  Disconnecting device.", 18, jposException);
-                        disconnect();
-                        log.failure("Received Printer " + jposException.getErrorCode() + " error.  Reconnecting device.", 18, jposException);
-                        connect();
-                        if (badPrintContentError) {
-                            throw new PrinterException(PrinterError.INVALID_FORMAT);
-                        }
+                    if (badPrintContentError) {
+                        throw new PrinterException(PrinterError.INVALID_FORMAT);
                     }
                     throw jposException;
                 } finally {
@@ -362,23 +324,6 @@ public class PrinterDevice implements StatusUpdateListener {
 
     public void setWasPaperEmpty(boolean paperEmpty) {
         wasPaperEmpty = paperEmpty;
-    }
-
-    /**
-     * Checks if R5 printer needs to reconnected before printing
-     * This prevents the R5 printer from going into an Internal Device Error after reloading receipt paper.
-     * @throws JposException
-     */
-    private void reconnectR5Printer() throws JposException {
-        POSPrinter printer;
-        synchronized (printer = dynamicPrinter.getDevice()) {
-            if (printer.getPhysicalDeviceName().contains(R5PrinterName) && getIsReconnectNeeded()) {
-                log.success("Reconnecting R5 printer", 9);
-                disconnect();
-                connect();
-                setIsReconnectNeeded(false);
-            }
-        }
     }
 
     private void clearPrinterBuffer(){

@@ -54,18 +54,6 @@ public class KeyboardManager {
         this.keyboardDevice.setEventCallback(this::onKeyEvent);
     }
 
-    public void reconnectDevice() throws DeviceException {
-        if (keyboardDevice.tryLock()) {
-            try {
-                keyboardDevice.disconnect();
-            } finally {
-                keyboardDevice.unlock();
-            }
-        } else {
-            throw new DeviceException(DeviceError.DEVICE_BUSY);
-        }
-    }
-
     /**
      * Callback invoked by the device when a key event occurs.
      * Sends the event to all connected SSE subscribers.
@@ -153,15 +141,6 @@ public class KeyboardManager {
         log.logDeviceEvent("lifecycle_close", "Keyboard", keyboardDevice.getDeviceName());
     }
 
-    public void setAutoMode() {
-        // No-op: URSA always owns device lifecycle.
-        log.logDeviceEvent("lifecycle_auto_noop", "Keyboard", keyboardDevice.getDeviceName());
-    }
-
-    public void setManualMode(boolean manual) {
-        // No-op: always in manual mode.
-    }
-
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 keyboardDevice.getDynamicDevice().getLifecycleState(),
@@ -170,7 +149,4 @@ public class KeyboardManager {
         );
     }
 
-    public boolean isManualMode() {
-        return true;
-    }
 }

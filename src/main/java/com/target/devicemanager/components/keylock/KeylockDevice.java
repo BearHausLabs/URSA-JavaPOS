@@ -57,39 +57,6 @@ public class KeylockDevice implements StatusUpdateListener {
     }
 
     /**
-     * Connects to the keylock device, attaches listeners, and enables it.
-     */
-    public boolean connect() {
-        if (dynamicKeylock.connect() == DynamicDevice.ConnectionResult.NOT_CONNECTED) {
-            return false;
-        }
-        if (!areListenersAttached) {
-            attachEventListeners();
-            areListenersAttached = true;
-        }
-
-        Keylock keylock;
-        synchronized (keylock = dynamicKeylock.getDevice()) {
-            try {
-                if (!keylock.getDeviceEnabled()) {
-                    keylock.setDeviceEnabled(true);
-                    try {
-                        currentPosition = keylock.getKeyPosition();
-                    } catch (JposException jposException) {
-                        log.failure("Failed to read initial key position", 17, jposException);
-                        currentPosition = KeylockConst.LOCK_KP_LOCK;
-                    }
-                }
-                deviceConnected = true;
-            } catch (JposException jposException) {
-                deviceConnected = false;
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
      * This method is only used to set 'areListenersAttached' for unit testing
      * @param areListenersAttached
      */

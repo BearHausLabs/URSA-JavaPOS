@@ -99,28 +99,6 @@ public class MsrController {
         return response;
     }
 
-    @Operation(description = "Reconnects to the MSR")
-    @PostMapping("/reconnect")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK"),
-            @ApiResponse(responseCode = "404", description = "DEVICE_OFFLINE",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class))),
-            @ApiResponse(responseCode = "409", description = "DEVICE_BUSY",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class)))
-    })
-    public void reconnect() throws DeviceException {
-        String url = "/v1/msr/reconnect";
-        log.successAPI("request", 1, url, null, 0);
-        try {
-            msrManager.reconnectDevice();
-            log.successAPI("response", 1, url, null, 200);
-        } catch (DeviceException deviceException) {
-            int statusCode = deviceException.getDeviceError().getStatusCode().value();
-            log.failureAPI("response", 13, url, deviceException.getDeviceError().toString(), statusCode, deviceException);
-            throw deviceException;
-        }
-    }
-
     // --- Lifecycle endpoints ---
 
     @Operation(description = "JPOS open — establish connection to MSR")
@@ -185,12 +163,4 @@ public class MsrController {
         return msrManager.getLifecycleStatus();
     }
 
-    @Operation(description = "Switch back to automatic reconnect mode")
-    @PostMapping("/lifecycle/auto")
-    public DeviceLifecycleResponse lifecycleAuto() {
-        String url = "/v1/msr/lifecycle/auto";
-        log.successAPI("request", 1, url, null, 0);
-        msrManager.setAutoMode();
-        return msrManager.getLifecycleStatus();
-    }
 }

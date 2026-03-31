@@ -72,34 +72,6 @@ public class CashDrawerController {
         }
     }
 
-    @Operation(description = "Reconnects to cash drawer(s)")
-    @PostMapping(path = {"/reconnect", "/reconnect/{drawerId}"})
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK"),
-            @ApiResponse(responseCode = "404", description = "DEVICE_OFFLINE",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class))),
-            @ApiResponse(responseCode = "409", description = "DEVICE_BUSY",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class)))
-    })
-    public void reconnect(
-            @Parameter(description = "Drawer ID (1-based). Omit to reconnect all.")
-            @PathVariable(required = false) Integer drawerId) throws DeviceException {
-        String url = "/v1/cashdrawer/reconnect" + (drawerId != null ? "/" + drawerId : "");
-        log.successAPI("request", 1, url, null, 0);
-        try {
-            if (drawerId != null) {
-                cashDrawerManager.reconnectDevice(drawerId);
-            } else {
-                cashDrawerManager.reconnectDevice();
-            }
-            log.successAPI("response", 1, url, null, 200);
-        } catch (DeviceException deviceException) {
-            int statusCode = deviceException.getDeviceError().getStatusCode().value();
-            log.failureAPI("response", 13, url, deviceException.getDeviceError().toString(), statusCode, deviceException);
-            throw deviceException;
-        }
-    }
-
     @Operation(description = "Reports cash drawer health")
     @GetMapping(path = {"/health", "/health/{drawerId}"})
     public ResponseEntity<List<DeviceHealthResponse>> getHealth(
@@ -203,12 +175,4 @@ public class CashDrawerController {
         return cashDrawerManager.getLifecycleStatus();
     }
 
-    @Operation(description = "Switch back to automatic reconnect mode")
-    @PostMapping("/lifecycle/auto")
-    public List<DeviceLifecycleResponse> lifecycleAuto() {
-        String url = "/v1/cashdrawer/lifecycle/auto";
-        log.successAPI("request", 1, url, null, 0);
-        cashDrawerManager.setAutoMode();
-        return cashDrawerManager.getLifecycleStatus();
-    }
 }

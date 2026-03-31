@@ -53,28 +53,6 @@ public class KeyboardController {
         return emitter;
     }
 
-    @Operation(description = "Reconnects to the POS keyboard device")
-    @PostMapping("/reconnect")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK"),
-            @ApiResponse(responseCode = "404", description = "DEVICE_OFFLINE",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class))),
-            @ApiResponse(responseCode = "409", description = "DEVICE_BUSY",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class)))
-    })
-    public void reconnect() throws DeviceException {
-        String url = "/v1/keyboard/reconnect";
-        log.successAPI("request", 1, url, null, 0);
-        try {
-            keyboardManager.reconnectDevice();
-            log.successAPI("response", 1, url, null, 200);
-        } catch (DeviceException deviceException) {
-            int statusCode = deviceException.getDeviceError().getStatusCode().value();
-            log.failureAPI("response", 13, url, deviceException.getDeviceError().toString(), statusCode, deviceException);
-            throw deviceException;
-        }
-    }
-
     @Operation(description = "Reports POS keyboard health")
     @GetMapping("/health")
     public DeviceHealthResponse getHealth() {
@@ -159,12 +137,4 @@ public class KeyboardController {
         return keyboardManager.getLifecycleStatus();
     }
 
-    @Operation(description = "Switch back to automatic reconnect mode")
-    @PostMapping("/lifecycle/auto")
-    public DeviceLifecycleResponse lifecycleAuto() {
-        String url = "/v1/keyboard/lifecycle/auto";
-        log.successAPI("request", 1, url, null, 0);
-        keyboardManager.setAutoMode();
-        return keyboardManager.getLifecycleStatus();
-    }
 }

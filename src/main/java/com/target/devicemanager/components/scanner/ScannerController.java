@@ -170,30 +170,7 @@ public class ScannerController {
         return ResponseEntity.ok(responseList);
     }
 
-    @Operation(description = "Reconnects scanners")
-    @PostMapping(path = "/scanner/reconnect")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK"),
-            @ApiResponse(responseCode = "404", description = "DEVICE_OFFLINE",
-                    content = @Content(schema = @Schema( implementation = DeviceError.class))),
-            @ApiResponse(responseCode = "409", description = "DEVICE_BUSY",
-                    content = @Content(schema = @Schema( implementation = DeviceError.class))),
-            @ApiResponse(responseCode = "500", description = "UNEXPECTED_ERROR",
-                    content = @Content(schema = @Schema( implementation = DeviceError.class)))
-    })
-    void reconnect() throws DeviceException {
-        String url = "/v1/scanner/reconnect";
-        log.success("API Request Received", 1);
-        try {
-            scannerManager.reconnectScanners();
-            log.successAPI("API Request Completed Successfully", 1, url, "OK", 200);
-        } catch (DeviceException deviceException) {
-            log.failureAPI("API Request Failed with DeviceException", 13, url, deviceException.getDeviceError() == null ? null : deviceException.getDeviceError().toString(), deviceException.getDeviceError() == null ? 0 : deviceException.getDeviceError().getStatusCode().value(), deviceException);
-            throw deviceException;
-        }
-    }
-
-    // --- Step 5e: Lifecycle endpoints ---
+    // --- Lifecycle endpoints ---
     // Scanner lifecycle requires a scannerType (FLATBED or HANDHELD)
 
     @Operation(description = "JPOS open — establish connection to scanner")
@@ -266,12 +243,4 @@ public class ScannerController {
         return scannerManager.getLifecycleStatus();
     }
 
-    @Operation(description = "Switch back to automatic reconnect mode")
-    @PostMapping("/scanner/lifecycle/auto")
-    public List<DeviceLifecycleResponse> lifecycleAuto() {
-        String url = "/v1/scanner/lifecycle/auto";
-        log.successAPI("request", 1, url, null, 0);
-        scannerManager.setAutoMode();
-        return scannerManager.getLifecycleStatus();
-    }
 }

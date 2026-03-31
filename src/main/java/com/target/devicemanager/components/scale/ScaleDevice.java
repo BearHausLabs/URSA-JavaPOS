@@ -125,38 +125,6 @@ public class ScaleDevice implements StatusUpdateListener, ErrorListener {
     }
 
     /**
-     * Making sure a connection occurs.
-     * @return connectionSuccessful
-     */
-    public boolean connect() {
-        Scale scale = dynamicScale.getDevice();
-        try {
-            DynamicDevice.ConnectionResult connectionResult = dynamicScale.connect();
-            if (connectionResult == DynamicDevice.ConnectionResult.NOT_CONNECTED) {
-                scale.clearInput();
-                return false;
-            }
-            if (scale.getStatusNotify() != ScaleConst.SCAL_SN_ENABLED) {
-                scale.setStatusNotify(ScaleConst.SCAL_SN_ENABLED);
-            }
-            if (!scale.getDataEventEnabled()) {
-                scale.setDataEventEnabled(true);
-            }
-            if (!scale.getDeviceEnabled()) {
-                scale.setDeviceEnabled(true);
-            }
-            //Only fire the connection even when first connected
-            if (connectionResult == DynamicDevice.ConnectionResult.CONNECTED) {
-                fireConnectionEvent(true);
-            }
-        } catch (JposException jposException) {
-            return false;
-        }
-        deviceConnected = true;
-        return true;
-    }
-
-    /**
      * Disconnects scale and starts an event.
      */
     void disconnect() {
@@ -235,7 +203,8 @@ public class ScaleDevice implements StatusUpdateListener, ErrorListener {
                 log.failure("Scale Status Update: Power offline", 17, null);
                 return;
             case JposConst.JPOS_SUE_POWER_ONLINE:
-                connect();
+                log.success("Scale Status Update: Power online", 5);
+                deviceConnected = true;
                 return;
             case ScaleConst.SCAL_SUE_STABLE_WEIGHT:
                 Scale theScale = dynamicScale.getDevice();

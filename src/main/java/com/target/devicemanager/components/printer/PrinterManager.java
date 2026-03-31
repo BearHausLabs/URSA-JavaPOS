@@ -54,19 +54,6 @@ public class PrinterManager {
         }
     }
 
-    public void reconnectDevice() throws DeviceException {
-        if (printerDevice.tryLock()) {
-            try {
-                printerDevice.disconnect();
-            } finally {
-                printerDevice.unlock();
-            }
-        }
-        else {
-            throw new DeviceException(DeviceError.DEVICE_BUSY);
-        }
-    }
-
     public void printReceipt(List<PrinterContent> contents) throws DeviceException {
         if (!printerLock.tryLock()) {
             PrinterException printerException = new PrinterException(PrinterError.DEVICE_BUSY);
@@ -203,15 +190,6 @@ public class PrinterManager {
         log.logDeviceEvent("lifecycle_close", "Printer", printerDevice.getDeviceName());
     }
 
-    public void setAutoMode() {
-        // No-op: URSA always owns device lifecycle. Kept for API compatibility.
-        log.logDeviceEvent("lifecycle_auto_noop", "Printer", printerDevice.getDeviceName());
-    }
-
-    public void setManualMode(boolean manual) {
-        // No-op: always in manual mode. Kept for API compatibility.
-    }
-
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 printerDevice.getDynamicDevice().getLifecycleState(),
@@ -220,7 +198,4 @@ public class PrinterManager {
         );
     }
 
-    public boolean isManualMode() {
-        return true;
-    }
 }

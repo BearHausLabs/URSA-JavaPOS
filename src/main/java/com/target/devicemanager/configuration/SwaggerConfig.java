@@ -16,10 +16,10 @@ public class SwaggerConfig {
     public OpenAPI api() {
         return new OpenAPI()
                 .components(new Components())
-                .info(new Info().title("Possum")
+                .info(new Info().title("URSA IO")
                         .description("Spring Boot API used to present the functionality of all USB-connected POS peripherals")
                         .contact(new Contact()
-                                .name("POSSUM Team")));
+                                .name("URSA Team")));
     }
 
     @Bean

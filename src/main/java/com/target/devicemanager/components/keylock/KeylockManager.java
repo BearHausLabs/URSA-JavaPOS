@@ -54,18 +54,6 @@ public class KeylockManager {
         this.keylockDevice.setPositionChangeCallback(this::onPositionChange);
     }
 
-    public void reconnectDevice() throws DeviceException {
-        if (keylockDevice.tryLock()) {
-            try {
-                keylockDevice.disconnect();
-            } finally {
-                keylockDevice.unlock();
-            }
-        } else {
-            throw new DeviceException(DeviceError.DEVICE_BUSY);
-        }
-    }
-
     public KeyPosition getKeyPosition() throws DeviceException {
         if (!keylockLock.tryLock()) {
             throw new DeviceException(DeviceError.DEVICE_BUSY);
@@ -180,15 +168,6 @@ public class KeylockManager {
         log.logDeviceEvent("lifecycle_close", "Keylock", keylockDevice.getDeviceName());
     }
 
-    public void setAutoMode() {
-        // No-op: URSA always owns device lifecycle.
-        log.logDeviceEvent("lifecycle_auto_noop", "Keylock", keylockDevice.getDeviceName());
-    }
-
-    public void setManualMode(boolean manual) {
-        // No-op: always in manual mode.
-    }
-
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 keylockDevice.getDynamicDevice().getLifecycleState(),
@@ -197,7 +176,4 @@ public class KeylockManager {
         );
     }
 
-    public boolean isManualMode() {
-        return true;
-    }
 }

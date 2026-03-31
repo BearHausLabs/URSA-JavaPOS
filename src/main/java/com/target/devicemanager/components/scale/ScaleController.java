@@ -123,30 +123,7 @@ public class ScaleController {
         return response;
     }
 
-    @Operation(description = "Reconnects scanner by disconnecting, then connecting")
-    @PostMapping(path = "/scale/reconnect")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK"),
-            @ApiResponse(responseCode = "404", description = "DEVICE_OFFLINE",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class))),
-            @ApiResponse(responseCode = "409", description = "DEVICE_BUSY",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class)))
-    })
-    public void reconnect() throws DeviceException {
-        String url = "/v1/scale/reconnect";
-        log.successAPI("request", 1, url, null, 0);
-        try {
-            scaleManager.reconnectDevice();
-            log.successAPI("response", 1, url, null, 200);
-        } catch (DeviceException deviceException) {
-            int statusCode = deviceException.getDeviceError() == null ? 0 : deviceException.getDeviceError().getStatusCode().value();
-            String body = deviceException.getDeviceError() == null ? null : deviceException.getDeviceError().toString();
-            log.failureAPI("response", 13, url, body, statusCode, deviceException);
-            throw deviceException;
-        }
-    }
-
-    // --- Step 5e: Lifecycle endpoints ---
+    // --- Lifecycle endpoints ---
 
     @Operation(description = "JPOS open — establish connection to scale")
     @PostMapping("/scale/lifecycle/open")
@@ -210,12 +187,4 @@ public class ScaleController {
         return scaleManager.getLifecycleStatus();
     }
 
-    @Operation(description = "Switch back to automatic reconnect mode")
-    @PostMapping("/scale/lifecycle/auto")
-    public DeviceLifecycleResponse lifecycleAuto() {
-        String url = "/v1/scale/lifecycle/auto";
-        log.successAPI("request", 1, url, null, 0);
-        scaleManager.setAutoMode();
-        return scaleManager.getLifecycleStatus();
-    }
 }

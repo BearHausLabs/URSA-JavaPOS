@@ -69,32 +69,6 @@ public class LineDisplayDevice implements StatusUpdateListener {
         this.connectionEventListeners.forEach(listener -> listener.connectionEventOccurred(new ConnectionEvent(this, connectStatus)));
     }
 
-    /**
-     * Makes sure a connection occurs.
-     * @return Returns the connection status.
-     */
-    public boolean connect() {
-        try {
-            DynamicDevice.ConnectionResult connectionResult = dynamicLineDisplay.connect();
-            if (connectionResult == DynamicDevice.ConnectionResult.NOT_CONNECTED) {
-                return false;
-            }
-            //Make sure the device is enabled even if we were already connected
-            LineDisplay lineDisplay = dynamicLineDisplay.getDevice();
-            if (!lineDisplay.getDeviceEnabled()) {
-                lineDisplay.setDeviceEnabled(true);
-            }
-            //First connection, fire the event and clear the screen
-            if(connectionResult == DynamicDevice.ConnectionResult.CONNECTED) {
-                lineDisplay.clearText();
-                fireConnectionEvent(true);
-            }
-        } catch (JposException jposException) {
-            return false;
-        }
-        return true;
-    }
-
     //This separates the low level disconnect from the high level disconnect
     // the idea is to prevent deadlocks in device code that has the device locked
     // when it sends things like status update events
@@ -166,7 +140,7 @@ public class LineDisplayDevice implements StatusUpdateListener {
                 break;
 
             case JposConst.JPOS_SUE_POWER_ONLINE:
-                connect();
+                log.success("Line Display Status Update: Power online", 5);
                 break;
 
             default:

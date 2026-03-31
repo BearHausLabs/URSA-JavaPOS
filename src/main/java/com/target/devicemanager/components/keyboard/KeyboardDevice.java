@@ -59,38 +59,6 @@ public class KeyboardDevice implements DataListener, StatusUpdateListener {
     }
 
     /**
-     * Connects to the POS keyboard device, attaches listeners, and enables it.
-     */
-    public boolean connect() {
-        if (dynamicKeyboard.connect() == DynamicDevice.ConnectionResult.NOT_CONNECTED) {
-            return false;
-        }
-        if (!areListenersAttached) {
-            attachEventListeners();
-            areListenersAttached = true;
-        }
-
-        POSKeyboard keyboard;
-        synchronized (keyboard = dynamicKeyboard.getDevice()) {
-            try {
-                if (!keyboard.getDeviceEnabled()) {
-                    keyboard.setDeviceEnabled(true);
-                    try {
-                        keyboard.setDataEventEnabled(true);
-                    } catch (JposException jposException) {
-                        log.failure("Failed to enable data events", 17, jposException);
-                    }
-                }
-                deviceConnected = true;
-            } catch (JposException jposException) {
-                deviceConnected = false;
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
      * This method is only used to set 'areListenersAttached' for unit testing
      */
     public void setAreListenersAttached(boolean areListenersAttached) {

@@ -110,33 +110,6 @@ public class MicrDevice implements StatusUpdateListener, ErrorListener, DataList
     }
 
     /**
-     * Makes sure a connection occurs.
-     * @return
-     */
-    public boolean connect() {
-        MICR micr = dynamicMicr.getDevice();
-        try {
-            DynamicDevice.ConnectionResult connectionResult = dynamicMicr.connect();
-            if (connectionResult == DynamicDevice.ConnectionResult.NOT_CONNECTED) {
-                return false;
-            }
-            if (!micr.getDataEventEnabled()) {
-                micr.setDataEventEnabled(true);
-            }
-            if (!micr.getDeviceEnabled()) {
-                micr.setDeviceEnabled(true);
-            }
-            //Only fire the connection even when first connected
-            if (connectionResult == DynamicDevice.ConnectionResult.CONNECTED) {
-                fireConnectionEvent(true);
-            }
-        } catch (JposException jposException) {
-            return false;
-        }
-        return true;
-    }
-
-    /**
      * Disconnects Micr and starts event.
      */
     public void disconnect() {
@@ -256,7 +229,7 @@ public class MicrDevice implements StatusUpdateListener, ErrorListener, DataList
                 disconnect();
                 break;
             case JposConst.JPOS_SUE_POWER_ONLINE:
-                connect();
+                log.success("Check Reader Status Update: Power online", 5);
                 break;
             default:
                 break;

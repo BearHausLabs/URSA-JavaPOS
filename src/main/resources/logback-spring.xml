@@ -15,10 +15,10 @@
         </rollingPolicy>
         <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
     </appender>
-    <appender name="POSSUM" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_PATH}/possum.log</file>
+    <appender name="URSA_IO" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/ursa-io.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_PATH}/possum.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>${LOG_PATH}/ursa-io.%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>7</maxHistory>
         </rollingPolicy>
         <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
@@ -58,7 +58,7 @@
             <appender-ref ref="SPRING"/>
         </logger>
         <logger name="com.target.devicemanager" level="DEBUG" additivity="false">
-            <appender-ref ref="POSSUM"/>
+            <appender-ref ref="URSA_IO"/>
         </logger>
         <logger name="com.target.jpos" level="TRACE" additivity="false">
             <appender-ref ref="JPOS"/>
@@ -75,7 +75,7 @@
             <appender-ref ref="SPRING"/>
         </logger>
         <logger name="com.target.devicemanager" level="INFO" additivity="false">
-            <appender-ref ref="POSSUM"/>
+            <appender-ref ref="URSA_IO"/>
         </logger>
         <logger name="com.target.jpos" level="DEBUG" additivity="false">
             <appender-ref ref="JPOS"/>

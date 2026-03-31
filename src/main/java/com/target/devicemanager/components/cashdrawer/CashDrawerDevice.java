@@ -100,41 +100,6 @@ public class CashDrawerDevice implements StatusUpdateListener{
     }
 
     /**
-     * Makes sure cash drawer is enabled and connected.
-     */
-    public boolean connect() {
-        if (dynamicCashDrawer.connect() == DynamicDevice.ConnectionResult.NOT_CONNECTED) {
-            return false;
-        }
-        if (!areListenersAttached) {
-            attachEventListeners();
-            areListenersAttached = true;
-        }
-
-        /*
-        NCR Devices throws exception when setDeviceEnabled is called when device is not connected.
-        Enable the device when device is connected so that we can get status update events.
-        When device is disabled we will not get the status events
-        */
-        CashDrawer cashDrawer;
-        synchronized (cashDrawer = dynamicCashDrawer.getDevice()) {
-            try {
-                if (!cashDrawer.getDeviceEnabled()) {
-                    cashDrawer.setDeviceEnabled(true);
-                }
-                if (cashDrawer.getDrawerOpened()) {
-                    cashDrawerOpen = true;
-                }
-                deviceConnected = true;
-            } catch (JposException jposException) {
-                deviceConnected = false;
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
      * This method is only used to set 'areListenersAttached' for unit testing
      * @param areListenersAttached
      */

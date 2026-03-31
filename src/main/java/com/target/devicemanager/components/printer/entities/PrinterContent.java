@@ -18,7 +18,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public abstract class PrinterContent {
     @Schema(description = "Three types are possible, their models are defined in the models section at the bottom of the page.")
     public ContentType type;
-    @Schema(example = "Test Print\n\n\n From POSSUM\u001B|100fP")
+    @Schema(example = "Test Print\n\n\n From URSA IO\u001B|100fP")
     public String data;
 
     public void setType(ContentType type) {

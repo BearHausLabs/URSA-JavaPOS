@@ -13,23 +13,6 @@ public class DynamicDevice<DEVICE extends BaseJposControl> {
     private static final Logger LOGGER = LoggerFactory.getLogger(DynamicDevice.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getCommonServiceName(), "DynamicDevice", LOGGER);
 
-
-    public enum ConnectionResult {
-        CONNECTED,
-        NOT_CONNECTED,
-        ALREADY_CONNECTED
-    }
-
-    /**
-     * No-op connect stub. Auto-discovery has been removed.
-     * URSA controls device lifecycle via open/claim/enable endpoints.
-     * This method exists only to keep existing *Device.java files compiling;
-     * it always returns NOT_CONNECTED.
-     */
-    public ConnectionResult connect() {
-        return ConnectionResult.NOT_CONNECTED;
-    }
-
     public DynamicDevice(DEVICE device, DevicePower devicePower, DeviceConnector<DEVICE> deviceConnector) {
         if (device == null) {
             throw new IllegalArgumentException("device cannot be null");

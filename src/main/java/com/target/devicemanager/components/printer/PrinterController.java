@@ -98,27 +98,6 @@ public class PrinterController {
         return response;
     }
 
-    @Operation(description = "Reconnects the printer")
-    @PostMapping(path = "/printer/reconnect")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK"),
-            @ApiResponse(responseCode = "404", description = "DEVICE_OFFLINE",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class))),
-            @ApiResponse(responseCode = "409", description = "DEVICE_BUSY",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class)))
-    })
-    public void reconnect() throws DeviceException {
-        String url = "/v1/printer/reconnect";
-        log.successAPI("API Request Received", 1, url, null, 0);
-        try {
-            printerManager.reconnectDevice();
-            log.successAPI("API Request Completed Successfully", 1, url, "OK", 200);
-        } catch (DeviceException deviceException) {
-            log.failureAPI("API Request Failed with DeviceException", 13, url, deviceException.getDeviceError().toString(), deviceException.getDeviceError().getStatusCode().value(), null);
-            throw deviceException;
-        }
-    }
-
     @ExceptionHandler(value = HttpMessageNotReadableException.class)
     public ResponseEntity<DeviceError> handleInvalidFormat(HttpMessageNotReadableException originalException) {
         DeviceException printerException = new DeviceException(PrinterError.INVALID_FORMAT);
@@ -190,12 +169,4 @@ public class PrinterController {
         return printerManager.getLifecycleStatus();
     }
 
-    @Operation(description = "Switch back to automatic reconnect mode")
-    @PostMapping("/printer/lifecycle/auto")
-    public DeviceLifecycleResponse lifecycleAuto() {
-        String url = "/v1/printer/lifecycle/auto";
-        log.successAPI("request", 1, url, null, 0);
-        printerManager.setAutoMode();
-        return printerManager.getLifecycleStatus();
-    }
 }

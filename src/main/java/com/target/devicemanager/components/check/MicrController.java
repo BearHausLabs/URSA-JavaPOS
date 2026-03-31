@@ -129,29 +129,6 @@ public class MicrController {
         log.successAPI("response", 1, url, null, 200);
     }
 
-    @Operation(description = "Reconnect to check device")
-    @PostMapping("/check/reconnect")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK"),
-            @ApiResponse(responseCode = "404", description = "DEVICE OFFLINE",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class))),
-            @ApiResponse(responseCode = "409", description = "DEVICE_BUSY",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class)))
-    })
-    public void reconnect() throws DeviceException {
-        String url = "/v1/check/reconnect";
-        log.successAPI("request", 1, url, null, 0);
-        try {
-            micrManager.reconnectDevice();
-            log.successAPI("response", 1, url, null, 200);
-        } catch (DeviceException deviceException) {
-            int statusCode = deviceException.getDeviceError() == null ? 0 : deviceException.getDeviceError().getStatusCode().value();
-            String body = deviceException.getDeviceError() == null ? null : deviceException.getDeviceError().toString();
-            log.failureAPI("response", 13, url, body, statusCode, deviceException);
-            throw deviceException;
-        }
-    }
-
     @ExceptionHandler(value = HttpMessageNotReadableException.class)
     public ResponseEntity<DeviceError> handleInvalidFormat(HttpMessageNotReadableException originalException) {
         String url = "/v1/check";
@@ -242,12 +219,4 @@ public class MicrController {
         return micrManager.getLifecycleStatus();
     }
 
-    @Operation(description = "Switch back to automatic reconnect mode")
-    @PostMapping("/check/lifecycle/auto")
-    public DeviceLifecycleResponse lifecycleAuto() {
-        String url = "/v1/check/lifecycle/auto";
-        log.successAPI("request", 1, url, null, 0);
-        micrManager.setAutoMode();
-        return micrManager.getLifecycleStatus();
-    }
 }

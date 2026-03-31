@@ -58,12 +58,6 @@ public class ScannerManager {
         this.isTest = isTest;
     }
 
-    public void reconnectScanners() throws DeviceException {
-        for (ScannerDevice scanner : scanners) {
-            scanner.getDynamicDevice().disconnect();
-        }
-    }
-
     Barcode getData(ScannerType scannerType) throws ScannerException {
         log.success("getData(in)", 1);
         if (!scannerLock.tryLock()) {
@@ -294,15 +288,6 @@ public class ScannerManager {
         log.logDeviceEvent("lifecycle_close", "Scanner/" + scannerType, scanner.getDeviceName());
     }
 
-    public void setAutoMode() {
-        // No-op: URSA always owns device lifecycle.
-        log.logDeviceEvent("lifecycle_auto_noop", "Scanner", "all");
-    }
-
-    public void setManualMode(boolean manual) {
-        // No-op: always in manual mode.
-    }
-
     public List<DeviceLifecycleResponse> getLifecycleStatus() {
         List<DeviceLifecycleResponse> responses = new ArrayList<>();
         for (ScannerDevice scanner : scanners) {
@@ -315,7 +300,4 @@ public class ScannerManager {
         return responses;
     }
 
-    public boolean isManualMode() {
-        return true;
-    }
 }

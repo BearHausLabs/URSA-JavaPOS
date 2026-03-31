@@ -52,18 +52,6 @@ public class MicrManager implements MicrEventListener, ConnectionEventListener {
         this.micrDataClient = micrDataClient;
     }
 
-    public void reconnectDevice() throws DeviceException {
-        if (micrDevice.tryLock()) {
-            try {
-                micrDevice.disconnect();
-            } finally {
-                micrDevice.unlock();
-            }
-        } else {
-            throw new DeviceException(DeviceError.DEVICE_BUSY);
-        }
-    }
-
     MicrData readMICR(CompletableFuture<MicrData> micrDataClient) throws MicrException {
         this.micrDataClient = micrDataClient;
         micrDevice.setCheckCancelReceived(false);
@@ -181,15 +169,6 @@ public class MicrManager implements MicrEventListener, ConnectionEventListener {
         log.logDeviceEvent("lifecycle_close", "MICR", micrDevice.getDeviceName());
     }
 
-    public void setAutoMode() {
-        // No-op: URSA always owns device lifecycle.
-        log.logDeviceEvent("lifecycle_auto_noop", "MICR", micrDevice.getDeviceName());
-    }
-
-    public void setManualMode(boolean manual) {
-        // No-op: always in manual mode.
-    }
-
     public DeviceLifecycleResponse getLifecycleStatus() {
         return new DeviceLifecycleResponse(
                 micrDevice.getDynamicDevice().getLifecycleState(),
@@ -198,7 +177,4 @@ public class MicrManager implements MicrEventListener, ConnectionEventListener {
         );
     }
 
-    public boolean isManualMode() {
-        return true;
-    }
 }

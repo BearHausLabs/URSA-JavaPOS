@@ -49,38 +49,6 @@ public class CashDrawerManager {
     }
 
     /**
-     * Reconnect all drawers (disconnect only -- URSA re-opens via lifecycle endpoints).
-     */
-    public void reconnectDevice() throws DeviceException {
-        for (CashDrawerDevice drawer : cashDrawers) {
-            reconnectDrawer(drawer);
-        }
-    }
-
-    /**
-     * Reconnect a specific drawer by ID (1-based).
-     */
-    public void reconnectDevice(int drawerId) throws DeviceException {
-        CashDrawerDevice drawer = findDrawer(drawerId);
-        if (drawer == null) {
-            throw new DeviceException(DeviceError.DEVICE_OFFLINE);
-        }
-        reconnectDrawer(drawer);
-    }
-
-    private void reconnectDrawer(CashDrawerDevice drawer) throws DeviceException {
-        if (drawer.tryLock()) {
-            try {
-                drawer.disconnect();
-            } finally {
-                drawer.unlock();
-            }
-        } else {
-            throw new DeviceException(DeviceError.DEVICE_BUSY);
-        }
-    }
-
-    /**
      * Open drawer 1 (backward compatible -- no args).
      */
     public void openCashDrawer() throws DeviceException {
@@ -239,15 +207,6 @@ public class CashDrawerManager {
         log.logDeviceEvent("lifecycle_close", "CashDrawer/" + drawerId, drawer.getDeviceName());
     }
 
-    public void setAutoMode() {
-        // No-op: URSA always owns device lifecycle.
-        log.logDeviceEvent("lifecycle_auto_noop", "CashDrawer", "all");
-    }
-
-    public void setManualMode(boolean manual) {
-        // No-op: always in manual mode.
-    }
-
     public List<DeviceLifecycleResponse> getLifecycleStatus() {
         List<DeviceLifecycleResponse> responses = new ArrayList<>();
         for (CashDrawerDevice drawer : cashDrawers) {
@@ -260,7 +219,4 @@ public class CashDrawerManager {
         return responses;
     }
 
-    public boolean isManualMode() {
-        return true;
-    }
 }

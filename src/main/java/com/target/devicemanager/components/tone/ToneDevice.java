@@ -39,32 +39,6 @@ public class ToneDevice implements StatusUpdateListener {
         this.connectLock = connectLock;
     }
 
-    public boolean connect() {
-        if (dynamicTone.connect() == DynamicDevice.ConnectionResult.NOT_CONNECTED) {
-            deviceConnected = false;
-            return false;
-        }
-        if (!areListenersAttached) {
-            attachEventListeners();
-            areListenersAttached = true;
-        }
-
-        ToneIndicator tone;
-        synchronized (tone = dynamicTone.getDevice()) {
-            try {
-                if (!tone.getDeviceEnabled()) {
-                    tone.setDeviceEnabled(true);
-                    deviceConnected = true;
-                }
-            } catch (JposException jposException) {
-                log.failure("ToneIndicator Failed to enable device", 18, jposException);
-                deviceConnected = false;
-                return false;
-            }
-        }
-        return true;
-    }
-
     public void disconnect() {
         if (dynamicTone.isConnected()) {
             if (areListenersAttached) {

@@ -82,28 +82,6 @@ public class KeylockController {
         return emitter;
     }
 
-    @Operation(description = "Reconnects to the keylock device")
-    @PostMapping("/reconnect")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "OK"),
-            @ApiResponse(responseCode = "404", description = "DEVICE_OFFLINE",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class))),
-            @ApiResponse(responseCode = "409", description = "DEVICE_BUSY",
-                    content = @Content(schema = @Schema(implementation = DeviceError.class)))
-    })
-    public void reconnect() throws DeviceException {
-        String url = "/v1/keylock/reconnect";
-        log.successAPI("request", 1, url, null, 0);
-        try {
-            keylockManager.reconnectDevice();
-            log.successAPI("response", 1, url, null, 200);
-        } catch (DeviceException deviceException) {
-            int statusCode = deviceException.getDeviceError().getStatusCode().value();
-            log.failureAPI("response", 13, url, deviceException.getDeviceError().toString(), statusCode, deviceException);
-            throw deviceException;
-        }
-    }
-
     @Operation(description = "Reports keylock health")
     @GetMapping("/health")
     public DeviceHealthResponse getHealth() {
@@ -188,12 +166,4 @@ public class KeylockController {
         return keylockManager.getLifecycleStatus();
     }
 
-    @Operation(description = "Switch back to automatic reconnect mode")
-    @PostMapping("/lifecycle/auto")
-    public DeviceLifecycleResponse lifecycleAuto() {
-        String url = "/v1/keylock/lifecycle/auto";
-        log.successAPI("request", 1, url, null, 0);
-        keylockManager.setAutoMode();
-        return keylockManager.getLifecycleStatus();
-    }
 }

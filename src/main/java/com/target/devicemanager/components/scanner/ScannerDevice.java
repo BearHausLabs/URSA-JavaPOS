@@ -3,8 +3,6 @@ package com.target.devicemanager.components.scanner;
 import com.target.devicemanager.common.StructuredEventLogger;
 import com.target.devicemanager.common.DeviceListener;
 import com.target.devicemanager.common.DynamicDevice;
-import com.target.devicemanager.common.entities.DeviceError;
-import com.target.devicemanager.common.entities.DeviceException;
 import com.target.devicemanager.components.scanner.entities.Barcode;
 import com.target.devicemanager.components.scanner.entities.ScannerType;
 import com.target.devicemanager.configuration.ApplicationConfig;
@@ -16,8 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.Charset;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -28,8 +24,6 @@ public class ScannerDevice {
     private boolean deviceConnected = false;
     private static final Logger LOGGER = LoggerFactory.getLogger(ScannerDevice.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getScannerServiceName(), "ScannerDevice", LOGGER);
-    private static final int MAX_RETRIES = 3;
-    private static final int SCANNER_CMD_TIMEOUT = 999;
     private final ReentrantLock connectLock;
     private boolean isLocked = false;
     private boolean isTest = false;
@@ -65,55 +59,12 @@ public class ScannerDevice {
         this.applicationConfig = applicationConfig;
     }
 
-    /**
-     * Makes sure a connection occurs.
-     */
-    public void connect() {
-        if(tryLock()) {
-            try {
-                DynamicDevice.ConnectionResult connectionResult = dynamicScanner.connect();
-                if (connectionResult == DynamicDevice.ConnectionResult.CONNECTED) {
-                    attachEventListeners();
-                    deviceConnected = true;
-                } else if (connectionResult == DynamicDevice.ConnectionResult.NOT_CONNECTED ){
-                    deviceConnected = false;
-                } else {
-                    deviceConnected = (connectionResult == DynamicDevice.ConnectionResult.ALREADY_CONNECTED);
-                }
-            } finally {
-                unlock();
-            }
-        }
-    }
-
     public Boolean getDeviceConnected() {
         return this.deviceConnected;
     }
 
     public void setDeviceConnected(boolean deviceConnected) {
         this.deviceConnected = deviceConnected;
-    }
-
-    public Boolean reconnect() throws DeviceException {
-        if (tryLock()) {
-            try {
-                if (deviceConnected) {
-                    dynamicScanner.disconnect();
-                    detachEventListeners();
-                }
-                DynamicDevice.ConnectionResult connectionResult = dynamicScanner.connect();
-                if (connectionResult == DynamicDevice.ConnectionResult.CONNECTED) {
-                    attachEventListeners();
-                }
-                deviceConnected = (connectionResult == DynamicDevice.ConnectionResult.CONNECTED || connectionResult == DynamicDevice.ConnectionResult.ALREADY_CONNECTED);
-            } finally {
-                unlock();
-            }
-        }
-        else {
-            throw new DeviceException(DeviceError.DEVICE_BUSY);
-        }
-        return deviceConnected;
     }
 
     /**
@@ -241,12 +192,7 @@ public class ScannerDevice {
                 log.failure(getScannerType() + " Failed to Enable Device: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 17, jposException);
             }
 
-            if(getScannerType().equalsIgnoreCase("HANDHELD")) {
-                log.success("Attempting HANDHELD Reconnect enable", 9);
-                handheldReconnect();
-            } else {
-                throw jposException;
-            }
+            throw jposException;
         }
         log.success(getScannerType() + " scanner enabled", 1);
         log.success(getScannerType() + " enable(out)", 1);
@@ -269,12 +215,7 @@ public class ScannerDevice {
             } else if(jposException.getErrorCode() != JposConst.JPOS_E_CLOSED) {
                 log.failure(getScannerType() + " Failed to Disable Device: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 17, jposException);
             }
-            if(getScannerType().equalsIgnoreCase("HANDHELD")) {
-                log.success("Attempting HANDHELD Reconnect disable", 9);
-                handheldReconnect();
-            } else {
-                throw jposException;
-            }
+            throw jposException;
         }
         log.success(getScannerType() + " scanner disabled", 1);
         log.success(getScannerType() + " disable(out)", 1);
@@ -310,43 +251,6 @@ public class ScannerDevice {
     public String getScannerType() {
         return this.scannerType.toString();
     }
-    // Returns the elapsed time, need this for handscanner timeout/slow scan issue
-    // when we enable the handscanner - if this process takes longer than 1sec something went wrong
-    // and the handscanner timed out. We want to know the total time taken to enable the scanner, so we know
-    // whether we need to disconnect and reconnect the handscanner
-
-    /**
-     * Reconnects the handheld scanner.
-     */
-    private void handheldReconnect() {
-        log.success("handheldTimeoutOccurredCheck(in)", 1);
-        int retries = 0;
-        Instant start;
-        Instant end;
-        long timeElapsedMillis;
-        while (retries < MAX_RETRIES) {
-            try {
-                retries += 1;
-                dynamicScanner.disconnect();
-                connect();
-                start = Instant.now();
-                enable();
-                end = Instant.now();
-                timeElapsedMillis = Duration.between(start, end).toMillis();
-                if(timeElapsedMillis < SCANNER_CMD_TIMEOUT){
-                    log.success("Reconnect handheld : recovered dead hand scanner in " + retries + " attempt(s).", 9);
-                    break;
-                } else {
-                    log.success("Reconnect handheld : still taking longer " + timeElapsedMillis + " milliseconds", 9);
-                }
-            } catch (JposException jposException) {
-                log.failure("Hand scanner reconnect exception: " + jposException.getMessage(), 17, jposException);
-            }
-        }
-
-        log.success("handheldTimeoutOccurredCheck(out)", 1);
-    }
-
     /**
      * Lock the current resource.
      * @return
