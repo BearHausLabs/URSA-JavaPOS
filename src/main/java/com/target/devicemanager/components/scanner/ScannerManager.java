@@ -1,13 +1,11 @@
 package com.target.devicemanager.components.scanner;
 
 import com.target.devicemanager.common.DeviceLifecycleResponse;
-import com.target.devicemanager.common.DeviceLifecycleState;
 import com.target.devicemanager.common.StructuredEventLogger;
 import com.target.devicemanager.common.entities.*;
 import com.target.devicemanager.components.scanner.entities.Barcode;
 import com.target.devicemanager.components.scanner.entities.ScannerError;
 import com.target.devicemanager.components.scanner.entities.ScannerException;
-import com.target.devicemanager.components.scanner.entities.ScannerType;
 import jpos.JposException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,10 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
 
 @EnableCaching
@@ -27,38 +22,31 @@ public class ScannerManager {
     @Autowired
     private CacheManager cacheManager;
 
-    private final List<? extends ScannerDevice> scanners;
+    private final ScannerDevice scanner;
     private final Lock scannerLock;
     private static final Logger LOGGER = LoggerFactory.getLogger(ScannerManager.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getScannerServiceName(), "ScannerManager", LOGGER);
-    private ExecutorService executor;
-    private boolean isTest = false;
-    private List<Future<Boolean>> results;
 
-    public ScannerManager(List<? extends ScannerDevice> scanners, Lock scannerLock) {
-        this(scanners, scannerLock, null, null, null, false);
+    public ScannerManager(ScannerDevice scanner, Lock scannerLock) {
+        this(scanner, scannerLock, null);
     }
 
-    public ScannerManager(List<? extends ScannerDevice> scanners, Lock scannerLock, CacheManager cacheManager, ExecutorService executor, List<Future<Boolean>> results, boolean isTest) {
-        if (scanners == null) {
-            throw new IllegalArgumentException("scanners cannot be null");
+    public ScannerManager(ScannerDevice scanner, Lock scannerLock, CacheManager cacheManager) {
+        if (scanner == null) {
+            throw new IllegalArgumentException("scanner cannot be null");
         }
         if (scannerLock == null) {
             throw new IllegalArgumentException("scannerLock cannot be null");
         }
-        this.scanners = scanners;
+        this.scanner = scanner;
         this.scannerLock = scannerLock;
-        this.executor = executor;
-        this.results = results;
 
-        if(cacheManager != null) {
+        if (cacheManager != null) {
             this.cacheManager = cacheManager;
         }
-
-        this.isTest = isTest;
     }
 
-    Barcode getData(ScannerType scannerType) throws ScannerException {
+    Barcode getData() throws ScannerException {
         log.success("getData(in)", 1);
         if (!scannerLock.tryLock()) {
             ScannerException scannerException = new ScannerException(ScannerError.DEVICE_BUSY);
@@ -66,52 +54,21 @@ public class ScannerManager {
             throw scannerException;
         }
         try {
-            return enableScanners(scannerType);
+            return scanner.getScannerData();
+        } catch (Exception exception) {
+            ScannerException scannerException;
+            if (exception instanceof ScannerException) {
+                throw (ScannerException) exception;
+            } else if (exception instanceof jpos.JposException) {
+                scannerException = new ScannerException((jpos.JposException) exception);
+            } else {
+                log.failure("Exception occurred in getData: " + exception.getMessage(), 17, exception);
+                scannerException = new ScannerException(ScannerError.UNEXPECTED_ERROR);
+            }
+            throw scannerException;
         } finally {
             scannerLock.unlock();
             log.success("getData(out)", 1);
-        }
-    }
-
-    private Barcode enableScanners(ScannerType scannerType) throws ScannerException {
-        log.success("enableScanners(in)", 1);
-        List<Callable<Barcode>> taskList = new ArrayList<>();
-        for (ScannerDevice scanner : scanners) {
-            switch (scannerType.name()) {
-                case "FLATBED":
-                case "HANDHELD":
-                    if (scanner.getScannerType().equals(scannerType.name())) {
-                        taskList.add(scanner::getScannerData);
-                    }
-                    break;
-                default:
-                    taskList.add(scanner::getScannerData);
-            }
-        }
-        if(!isTest) {
-            executor = Executors.newFixedThreadPool(taskList.size());
-        }
-        try {
-            Barcode barcode = executor.invokeAny(taskList);
-            disableScanners();
-            return barcode;
-        } catch (ExecutionException | InterruptedException exception) {
-            ScannerException scannerException;
-            Throwable cause = exception.getCause();
-            if (cause instanceof JposException) {
-                scannerException = new ScannerException((JposException) cause);
-            } else {
-                log.failure("Exception occurred in enableScanners: " + exception.getMessage(), 17, exception);
-                scannerException = new ScannerException(ScannerError.UNEXPECTED_ERROR);
-            }
-            log.success("enableScanners(): " + scannerException.getDeviceError().getDescription(), 1);
-            log.success("enableScanners(out)", 1);
-            throw scannerException;
-        }
-        finally {
-            if (executor != null) {
-                executor.shutdown();
-            }
         }
     }
 
@@ -129,39 +86,20 @@ public class ScannerManager {
             }
         }
         try {
-            disableScanners();
-        } catch (InterruptedException exception) {
-            ScannerException scannerException = new ScannerException(ScannerError.UNEXPECTED_ERROR);
-            log.failure("Interrupted while cancelling scan request", 17, exception);
-            throw scannerException;
+            scanner.cancelScannerData();
         } catch (Exception exception) {
             log.failure("Error in cancelScanRequest: " + exception.getMessage(), 17, exception);
         }
         log.success("cancelScanRequest(out)", 1);
     }
 
-    public List<DeviceHealthResponse> getHealth(ScannerType scannerType) {
+    public DeviceHealthResponse getHealth() {
         log.success("getHealth(in)", 1);
-        List<DeviceHealthResponse> response = new ArrayList<>();
-        for (ScannerDevice scanner : scanners) {
-            switch (scannerType.name()) {
-                case "FLATBED":
-                case "HANDHELD":
-                    if(scanner.getScannerType().equals(scannerType.name())) {
-                        if (scanner.isConnected()) {
-                            response.add(new DeviceHealthResponse(scanner.getDeviceName(), DeviceHealth.READY));
-                        } else {
-                            response.add(new DeviceHealthResponse(scanner.getDeviceName(), DeviceHealth.NOTREADY));
-                        }
-                    }
-                    break;
-                default:
-                    if (scanner.isConnected()) {
-                        response.add(new DeviceHealthResponse(scanner.getDeviceName(), DeviceHealth.READY));
-                    } else {
-                        response.add(new DeviceHealthResponse(scanner.getDeviceName(), DeviceHealth.NOTREADY));
-                    }
-            }
+        DeviceHealthResponse response;
+        if (scanner.isConnected()) {
+            response = new DeviceHealthResponse(scanner.getDeviceName(), DeviceHealth.READY);
+        } else {
+            response = new DeviceHealthResponse(scanner.getDeviceName(), DeviceHealth.NOTREADY);
         }
         try {
             Objects.requireNonNull(cacheManager.getCache("scannerHealth")).put("health", response);
@@ -172,132 +110,56 @@ public class ScannerManager {
         return response;
     }
 
-    public List<DeviceHealthResponse> getStatus() {
+    public DeviceHealthResponse getStatus() {
         try {
             if (cacheManager != null && Objects.requireNonNull(cacheManager.getCache("scannerHealth")).get("health") != null) {
-                return (List<DeviceHealthResponse>) Objects.requireNonNull(cacheManager.getCache("scannerHealth")).get("health").get();
+                return (DeviceHealthResponse) Objects.requireNonNull(cacheManager.getCache("scannerHealth")).get("health").get();
             } else {
                 log.success("Not able to retrieve from cache, checking getHealth()", 6);
-                return getHealth(ScannerType.BOTH);
+                return getHealth();
             }
         } catch (Exception exception) {
-            return getHealth(ScannerType.BOTH);
+            return getHealth();
         }
-    }
-
-    public DeviceHealth getScannerHealthStatus(String scannerType) {
-        String scannerName = "";
-        for (ScannerDevice scanner : scanners) {
-            switch (scannerType) {
-                case "FLATBED":
-                case "HANDHELD":
-                    if (scanner.getScannerType().equals(scannerType)) {
-                        scannerName = scanner.getDeviceName();
-                    }
-                    break;
-                default:
-                    scannerName = "";
-            }
-        }
-        for(DeviceHealthResponse deviceHealthResponse: getStatus()) {
-            if(deviceHealthResponse.getDeviceName().equals(scannerName)) {
-                return deviceHealthResponse.getHealthStatus();
-            }
-        }
-        return new DeviceHealthResponse(scannerName, DeviceHealth.NOTREADY).getHealthStatus();
-    }
-
-    private void disableScanners() throws InterruptedException {
-        log.success("disableScanners(in)", 1);
-        List<Callable<Void>> taskList = new ArrayList<>();
-        try {
-            scanners.forEach(scanner -> taskList.add(scanner::cancelScannerData));
-            if(!isTest) {
-                executor = Executors.newFixedThreadPool(taskList.size());
-            }
-            executor.invokeAll(taskList);
-            executor.shutdown();
-        } catch (InterruptedException interruptedException) {
-            throw interruptedException;
-        }
-        log.success("disableScanner(out)", 1);
     }
 
     // --- Lifecycle methods ---
 
-    private ScannerDevice findScanner(ScannerType scannerType) {
-        for (ScannerDevice scanner : scanners) {
-            if (scannerType == ScannerType.BOTH || scanner.getScannerType().equals(scannerType.name())) {
-                return scanner;
-            }
-        }
-        return null;
-    }
-
-    public void openDevice(String logicalName, ScannerType scannerType) throws JposException {
-        ScannerDevice scanner = findScanner(scannerType);
-        if (scanner == null) {
-            throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
-        }
+    public void openDevice(String logicalName) throws JposException {
         scanner.getDynamicDevice().openDevice(logicalName);
-        log.logDeviceEvent("lifecycle_open", "Scanner/" + scannerType, logicalName);
+        log.logDeviceEvent("lifecycle_open", "Scanner", logicalName);
     }
 
-    public void claimDevice(int timeout, ScannerType scannerType) throws JposException {
-        ScannerDevice scanner = findScanner(scannerType);
-        if (scanner == null) {
-            throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
-        }
+    public void claimDevice(int timeout) throws JposException {
         scanner.getDynamicDevice().claimDevice(timeout);
-        log.logDeviceEvent("lifecycle_claim", "Scanner/" + scannerType, scanner.getDeviceName());
+        log.logDeviceEvent("lifecycle_claim", "Scanner", scanner.getDeviceName());
     }
 
-    public void enableDevice(ScannerType scannerType) throws JposException {
-        ScannerDevice scanner = findScanner(scannerType);
-        if (scanner == null) {
-            throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
-        }
+    public void enableDevice() throws JposException {
         scanner.getDynamicDevice().enableDevice();
-        log.logDeviceEvent("lifecycle_enable", "Scanner/" + scannerType, scanner.getDeviceName());
+        log.logDeviceEvent("lifecycle_enable", "Scanner", scanner.getDeviceName());
     }
 
-    public void disableDevice(ScannerType scannerType) throws JposException {
-        ScannerDevice scanner = findScanner(scannerType);
-        if (scanner == null) {
-            throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
-        }
+    public void disableDevice() throws JposException {
         scanner.getDynamicDevice().disableDevice();
-        log.logDeviceEvent("lifecycle_disable", "Scanner/" + scannerType, scanner.getDeviceName());
+        log.logDeviceEvent("lifecycle_disable", "Scanner", scanner.getDeviceName());
     }
 
-    public void releaseDevice(ScannerType scannerType) throws JposException {
-        ScannerDevice scanner = findScanner(scannerType);
-        if (scanner == null) {
-            throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
-        }
+    public void releaseDevice() throws JposException {
         scanner.getDynamicDevice().releaseDevice();
-        log.logDeviceEvent("lifecycle_release", "Scanner/" + scannerType, scanner.getDeviceName());
+        log.logDeviceEvent("lifecycle_release", "Scanner", scanner.getDeviceName());
     }
 
-    public void closeDevice(ScannerType scannerType) throws JposException {
-        ScannerDevice scanner = findScanner(scannerType);
-        if (scanner == null) {
-            throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Scanner type not found: " + scannerType);
-        }
+    public void closeDevice() throws JposException {
         scanner.getDynamicDevice().closeDevice();
-        log.logDeviceEvent("lifecycle_close", "Scanner/" + scannerType, scanner.getDeviceName());
+        log.logDeviceEvent("lifecycle_close", "Scanner", scanner.getDeviceName());
     }
 
-    public List<DeviceLifecycleResponse> getLifecycleStatus() {
-        List<DeviceLifecycleResponse> responses = new ArrayList<>();
-        for (ScannerDevice scanner : scanners) {
-            responses.add(new DeviceLifecycleResponse(
-                    scanner.getDynamicDevice().getLifecycleState(),
-                    scanner.getDeviceName(),
-                    "Scanner/" + scanner.getScannerType()
-            ));
-        }
-        return responses;
+    public DeviceLifecycleResponse getLifecycleStatus() {
+        return new DeviceLifecycleResponse(
+                scanner.getDynamicDevice().getLifecycleState(),
+                scanner.getDeviceName(),
+                "Scanner"
+        );
     }
-
 }

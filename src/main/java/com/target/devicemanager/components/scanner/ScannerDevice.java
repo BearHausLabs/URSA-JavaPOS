@@ -4,7 +4,6 @@ import com.target.devicemanager.common.StructuredEventLogger;
 import com.target.devicemanager.common.DeviceListener;
 import com.target.devicemanager.common.DynamicDevice;
 import com.target.devicemanager.components.scanner.entities.Barcode;
-import com.target.devicemanager.components.scanner.entities.ScannerType;
 import com.target.devicemanager.configuration.ApplicationConfig;
 import jpos.JposConst;
 import jpos.JposException;
@@ -20,7 +19,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public class ScannerDevice {
     private final DynamicDevice<? extends Scanner> dynamicScanner;
     private final DeviceListener deviceListener;
-    private final ScannerType scannerType;
     private boolean deviceConnected = false;
     private static final Logger LOGGER = LoggerFactory.getLogger(ScannerDevice.class);
     private static final StructuredEventLogger log = StructuredEventLogger.of(StructuredEventLogger.getScannerServiceName(), "ScannerDevice", LOGGER);
@@ -30,31 +28,25 @@ public class ScannerDevice {
     ApplicationConfig applicationConfig;
 
     /**
-     * initializes scanner device.
+     * Initializes scanner device.
      * @param deviceListener
      * @param dynamicScanner is the dynamic device.
-     * @param scannerType is the scanner type.
      */
-    public ScannerDevice(DeviceListener deviceListener, DynamicDevice<? extends Scanner> dynamicScanner, ScannerType scannerType, ApplicationConfig applicationConfig) {
-        this(deviceListener, dynamicScanner, scannerType, new ReentrantLock(true), applicationConfig);
+    public ScannerDevice(DeviceListener deviceListener, DynamicDevice<? extends Scanner> dynamicScanner, ApplicationConfig applicationConfig) {
+        this(deviceListener, dynamicScanner, new ReentrantLock(true), applicationConfig);
     }
 
-    public ScannerDevice(DeviceListener deviceListener, DynamicDevice<? extends Scanner> dynamicScanner, ScannerType scannerType, ReentrantLock connectLock, ApplicationConfig applicationConfig) {
-        if(scannerType == null) {
-            log.failure("Failed in Constructor: scannerType cannot be null", 17, null);
-            throw new IllegalArgumentException("scannerType cannot be null");
-        }
+    public ScannerDevice(DeviceListener deviceListener, DynamicDevice<? extends Scanner> dynamicScanner, ReentrantLock connectLock, ApplicationConfig applicationConfig) {
         if (deviceListener == null) {
-            log.failure(scannerType + " Failed in Constructor: deviceListener cannot be null", 17, null);
+            log.failure("Failed in Constructor: deviceListener cannot be null", 17, null);
             throw new IllegalArgumentException("deviceListener cannot be null");
         }
-        if(dynamicScanner == null){
-            log.failure(scannerType + " Failed in Constructor: dynamicScanner cannot be null", 17, null);
+        if (dynamicScanner == null) {
+            log.failure("Failed in Constructor: dynamicScanner cannot be null", 17, null);
             throw new IllegalArgumentException("dynamicScanner cannot be null");
         }
         this.dynamicScanner = dynamicScanner;
         this.deviceListener = deviceListener;
-        this.scannerType = scannerType;
         this.connectLock = connectLock;
         this.applicationConfig = applicationConfig;
     }
@@ -73,7 +65,7 @@ public class ScannerDevice {
      * @throws JposException
      */
     public Barcode getScannerData() throws JposException {
-        log.success(getScannerType() + " getScannerData(in)", 1);
+        log.success("getScannerData(in)", 1);
         enable();
         //waitForData can potentially block forever
         try {
@@ -85,38 +77,32 @@ public class ScannerDevice {
     }
 
     /**
-     * Handles the data based on scanner type and barcode.
+     * Handles the data based on barcode.
      * @param dataEvent instance of data event.
      * @return
      * @throws JposException
      */
     private Barcode handleDataEvent(DataEvent dataEvent) throws JposException {
         if (!(dataEvent.getSource() instanceof Scanner)) {
-            log.success(getScannerType() + " getScannerData(out)", 1);
+            log.success("getScannerData(out)", 1);
             JposException jposException = new JposException(JposConst.JPOS_E_FAILURE);
-            log.failure(getScannerType() + " Failed to Handle Data: " + jposException.getMessage(), 17, jposException);
+            log.failure("Failed to Handle Data: " + jposException.getMessage(), 17, jposException);
             throw jposException;
         }
         try {
             String data;
             int type;
-            ScannerType source;
             Scanner scanner;
             synchronized (scanner = (Scanner) dataEvent.getSource()) {
                 data = new String(scanner.getScanDataLabel(), Charset.defaultCharset());
                 type = scanner.getScanDataType();
-                if (applicationConfig != null && applicationConfig.IsSimulationMode()) {
-                    source = ScannerType.fromValue(scanner.getPhysicalDeviceName());
-                } else {
-                    source = scannerType;
-                }
             }
-            Barcode barcode = new Barcode(data, type, source);
-            log.success(barcode.source + " - returning scanned data type: " + barcode.type + " of size " + data.length(), 9);
-            log.success(barcode.source + " getScannerData(out)", 1);
+            Barcode barcode = new Barcode(data, type);
+            log.success("returning scanned data type: " + barcode.type + " of size " + data.length(), 9);
+            log.success("getScannerData(out)", 1);
             return barcode;
         } catch (JposException jposException) {
-            log.failure(getScannerType() + " Failed to Handle Data: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 17, jposException);
+            log.failure("Failed to Handle Data: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 17, jposException);
             throw jposException;
         }
     }
@@ -126,15 +112,15 @@ public class ScannerDevice {
      * @return null.
      */
     public Void cancelScannerData() {
-        log.success(getScannerType() + " cancelScannerData(in)", 1);
-        try{
+        log.success("cancelScannerData(in)", 1);
+        try {
             disable();
-        } catch(JposException jposException){
+        } catch (JposException jposException) {
             log.failure("Received exception in cancelScannerData", 1, jposException);
         } finally {
             deviceListener.stopWaitingForData();
         }
-        log.success(getScannerType() + " cancelScannerData(out)", 1);
+        log.success("cancelScannerData(out)", 1);
         return null;
     }
 
@@ -164,7 +150,7 @@ public class ScannerDevice {
      * @throws JposException
      */
     protected void enable() throws JposException {
-        log.success(getScannerType() + " enable(in)", 1);
+        log.success("enable(in)", 1);
         if (!isConnected()) {
             JposException jposException = new JposException(JposConst.JPOS_E_OFFLINE);
             throw jposException;
@@ -177,7 +163,7 @@ public class ScannerDevice {
                 scanner.setDecodeData(true);
                 scanner.setDataEventEnabled(true);
                 scanner.setDeviceEnabled(true);
-                if(isTest) { // used to test timeouts in unit testing
+                if (isTest) { // used to test timeouts in unit testing
                     try {
                         Thread.sleep(1100);
                     } catch (InterruptedException interruptedException) {
@@ -186,16 +172,11 @@ public class ScannerDevice {
                 }
             }
         } catch (JposException jposException) {
-            if(isConnected()) {
-                log.failure(getScannerType() + " Failed to Enable Device: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 17, jposException);
-            } else {
-                log.failure(getScannerType() + " Failed to Enable Device: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 17, jposException);
-            }
-
+            log.failure("Failed to Enable Device: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 17, jposException);
             throw jposException;
         }
-        log.success(getScannerType() + " scanner enabled", 1);
-        log.success(getScannerType() + " enable(out)", 1);
+        log.success("scanner enabled", 1);
+        log.success("enable(out)", 1);
     }
 
     /**
@@ -203,22 +184,22 @@ public class ScannerDevice {
      * @throws JposException
      */
     private void disable() throws JposException {
-        log.success(getScannerType() + " disable(in)", 1);
+        log.success("disable(in)", 1);
         try {
             Scanner scanner;
             synchronized (scanner = dynamicScanner.getDevice()) {
                 scanner.setDeviceEnabled(false);
             }
         } catch (JposException jposException) {
-            if(isConnected()) {
-                log.failure(getScannerType() + " Failed to Disable Device: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 17, jposException);
-            } else if(jposException.getErrorCode() != JposConst.JPOS_E_CLOSED) {
-                log.failure(getScannerType() + " Failed to Disable Device: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 17, jposException);
+            if (isConnected()) {
+                log.failure("Failed to Disable Device: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 17, jposException);
+            } else if (jposException.getErrorCode() != JposConst.JPOS_E_CLOSED) {
+                log.failure("Failed to Disable Device: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 17, jposException);
             }
             throw jposException;
         }
-        log.success(getScannerType() + " scanner disabled", 1);
-        log.success(getScannerType() + " disable(out)", 1);
+        log.success("scanner disabled", 1);
+        log.success("disable(out)", 1);
     }
 
     /**
@@ -245,12 +226,6 @@ public class ScannerDevice {
         }
     }
 
-    /** Gets the scanner type.
-     * @return Scanner type.
-     */
-    public String getScannerType() {
-        return this.scannerType.toString();
-    }
     /**
      * Lock the current resource.
      * @return
@@ -259,7 +234,7 @@ public class ScannerDevice {
         try {
             isLocked = connectLock.tryLock(10, TimeUnit.SECONDS);
             log.success("Lock: " + isLocked, 1);
-        } catch(InterruptedException interruptedException) {
+        } catch (InterruptedException interruptedException) {
             log.failure("Lock Failed: " + interruptedException.getMessage(), 17, interruptedException);
         }
         return isLocked;

@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.target.devicemanager.common.entities.DeviceErrorStatusResponse;
 import com.target.devicemanager.common.entities.DeviceHealth;
 import com.target.devicemanager.common.entities.DeviceHealthResponse;
-import com.target.devicemanager.components.scanner.entities.ScannerType;
 import com.target.devicemanager.configuration.ApplicationConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -175,16 +174,11 @@ public class DeviceAvailabilityService {
             return DeviceHealth.READY;
         }
         switch (devName){
+            case "scanner":
             case "flatbedscanner":
-                if(deviceAvailabilitySingleton.getScannerManager() != null) {
-                    healthStatus = deviceAvailabilitySingleton.getScannerManager().getScannerHealthStatus("FLATBED");
-                } else {
-                    log.failure("Failed to Connect to " + devName, 1, null);
-                }
-                break;
             case "handscanner":
                 if(deviceAvailabilitySingleton.getScannerManager() != null) {
-                    healthStatus = deviceAvailabilitySingleton.getScannerManager().getScannerHealthStatus("HANDHELD");
+                    healthStatus = deviceAvailabilitySingleton.getScannerManager().getStatus().getHealthStatus();
                 } else {
                     log.failure("Failed to Connect to " + devName, 1, null);
                 }
@@ -295,7 +289,7 @@ public class DeviceAvailabilityService {
             responseList.add(DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().getScaleManager().getHealth());
         }
         if(DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().getScannerManager() != null) {
-                responseList.addAll(DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().getScannerManager().getHealth(ScannerType.BOTH));
+            responseList.add(DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().getScannerManager().getHealth());
         }
         if(DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().getKeylockManager() != null) {
             responseList.add(DeviceAvailabilitySingleton.getDeviceAvailabilitySingleton().getKeylockManager().getHealth());
