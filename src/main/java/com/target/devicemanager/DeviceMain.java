@@ -31,16 +31,16 @@ public class DeviceMain {
         // configs (e.g. Toshiba FixedManager + SDIPopulator) to work natively.
         //
         // Priority for populator file:
-        //   1. URSA_IO_DEVCON_PATH env var (explicit override)
+        //   1. URSA_JAVAPOS_DEVCON_PATH env var (explicit override)
         //   2. jpos.properties populator.file.0 / populatorFile (deploy-time config)
         //   3. Fallback: config/devcon.xml relative to working directory
         //
         // The fallback is critical: if jpos/res/jpos.properties defines multi-populator
         // classes (e.g. Toshiba) but omits populator.file.0, SimpleXmlRegPopulator
         // would have no file to load, resulting in an empty registry and no devices.
-        String devconPath = System.getenv("URSA_IO_DEVCON_PATH");
+        String devconPath = System.getenv("URSA_JAVAPOS_DEVCON_PATH");
         if (devconPath != null) {
-            LOGGER.info("JCL populator file set from URSA_IO_DEVCON_PATH: {}", devconPath);
+            LOGGER.info("JCL populator file set from URSA_JAVAPOS_DEVCON_PATH: {}", devconPath);
             System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, devconPath);
             System.setProperty("jpos.config.populator.file.0", devconPath);  // Required for multi-populator JCL (Toshiba)
         } else {
@@ -55,7 +55,7 @@ public class DeviceMain {
                 System.setProperty(JposPropertiesConst.JPOS_POPULATOR_FILE_PROP_NAME, fallbackPath);
                 System.setProperty("jpos.config.populator.file.0", fallbackPath);  // Required for multi-populator JCL (Toshiba)
             } else {
-                LOGGER.warn("No URSA_IO_DEVCON_PATH env var and no config/devcon.xml found. " +
+                LOGGER.warn("No URSA_JAVAPOS_DEVCON_PATH env var and no config/devcon.xml found. " +
                         "JCL will rely on jpos/res/jpos.properties for populator file paths.");
             }
         }
@@ -124,7 +124,7 @@ public class DeviceMain {
     // -------------------------------------------------------------------------
 
     /**
-     * Reads vendor jpos.xml paths from URSA_IO_VENDOR_JPOS_PATHS env var,
+     * Reads vendor jpos.xml paths from URSA_JAVAPOS_PATHS env var,
      * parses JposEntry elements from each, and merges them into config/devcon.xml.
      * Scanner entries without a deviceType property get one injected automatically.
      * Duplicates (by logicalName) are skipped -- existing devcon.xml entries win.
@@ -194,17 +194,17 @@ public class DeviceMain {
     }
 
     /**
-     * Read vendor jpos.xml paths from URSA_IO_VENDOR_JPOS_PATHS env var (semicolon-delimited).
+     * Read vendor jpos.xml paths from URSA_JAVAPOS_PATHS env var (semicolon-delimited).
      */
     private static List<String> getVendorJposPaths() {
-        String envPaths = System.getenv("URSA_IO_VENDOR_JPOS_PATHS");
+        String envPaths = System.getenv("URSA_JAVAPOS_PATHS");
         if (envPaths != null && !envPaths.isBlank()) {
             List<String> paths = new ArrayList<>();
             for (String p : envPaths.split(";")) {
                 String trimmed = p.trim();
                 if (!trimmed.isEmpty()) paths.add(trimmed);
             }
-            LOGGER.info("Vendor jpos.xml paths from URSA_IO_VENDOR_JPOS_PATHS: {}", paths);
+            LOGGER.info("Vendor jpos.xml paths from URSA_JAVAPOS_PATHS: {}", paths);
             return paths;
         }
 
