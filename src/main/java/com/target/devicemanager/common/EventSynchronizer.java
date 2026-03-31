@@ -53,7 +53,12 @@ public class EventSynchronizer {
 
     //Do not make this synchronized, the phaser guarantees this will only trigger when the other threads send us data
     public JposEvent waitForEvent() {
-        phaser.awaitAdvance(waitingPhase.get());
+        try {
+            phaser.awaitAdvanceInterruptibly(waitingPhase.get());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.failure("waitForEvent interrupted", 13, e);
+        }
         JposEvent tmpEvent;
         synchronized (this) {
             areEventsActive.set(false);

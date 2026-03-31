@@ -170,7 +170,12 @@ public class PrinterDevice implements StatusUpdateListener {
                         }
                     }
                     printer.transactionPrint(printerStation, POSPrinterConst.PTR_TP_NORMAL);
-                    deviceListener.waitForOutputToComplete();
+                    // In synchronous mode (AsyncMode=false, the default), transactionPrint
+                    // blocks until data is sent. No OutputCompleteEvent fires, so
+                    // waitForOutputToComplete() would deadlock. Only wait in async mode.
+                    if (printer.getAsyncMode()) {
+                        deviceListener.waitForOutputToComplete();
+                    }
 
                 } catch (JposException jposException) {
                     log.failure("Printer Failed to Print Content: " + jposException.getErrorCode() + ", " + jposException.getErrorCodeExtended(), 18, jposException);
