@@ -218,9 +218,16 @@ public class DeviceConnector<T extends BaseJposControl> {
     }
 
     private String getDefaultDeviceName() {
-        if(this.customFilter != null) {
-            return customFilter.getValue();
+        // Return the first actual logical name from devcon.xml, not the
+        // category label or custom filter value. The lifecycle endpoint
+        // uses this as the reported logical_name, and callers (Electron
+        // splash) pass it back to /lifecycle/open -- it must be a real
+        // JCL registry entry name (e.g., "POSPrinter1" not "POSPrinter").
+        List<String> names = getLogicalNamesForDeviceType();
+        if (!names.isEmpty()) {
+            return names.get(0);
         }
+        // Fallback: class name (e.g., "POSPrinter") -- may not match devcon.xml
         return device.getClass().getSimpleName();
     }
 }
