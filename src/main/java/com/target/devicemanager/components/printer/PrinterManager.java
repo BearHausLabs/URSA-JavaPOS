@@ -172,11 +172,13 @@ public class PrinterManager {
 
     public void enableDevice() throws JposException {
         printerDevice.getDynamicDevice().enableDevice();
+        printerDevice.setDeviceConnected(true);
         log.logDeviceEvent("lifecycle_enable", "Printer", printerDevice.getDeviceName());
     }
 
     public void disableDevice() throws JposException {
         printerDevice.getDynamicDevice().disableDevice();
+        printerDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_disable", "Printer", printerDevice.getDeviceName());
     }
 
@@ -187,6 +189,7 @@ public class PrinterManager {
 
     public void closeDevice() throws JposException {
         printerDevice.getDynamicDevice().closeDevice();
+        printerDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_close", "Printer", printerDevice.getDeviceName());
     }
 

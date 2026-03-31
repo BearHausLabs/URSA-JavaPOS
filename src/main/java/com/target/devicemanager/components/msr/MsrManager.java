@@ -104,11 +104,13 @@ public class MsrManager {
 
     public void enableDevice() throws JposException {
         msrDevice.getDynamicDevice().enableDevice();
+        msrDevice.setDeviceConnected(true);
         log.logDeviceEvent("lifecycle_enable", "MSR", msrDevice.getDeviceName());
     }
 
     public void disableDevice() throws JposException {
         msrDevice.getDynamicDevice().disableDevice();
+        msrDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_disable", "MSR", msrDevice.getDeviceName());
     }
 
@@ -119,6 +121,7 @@ public class MsrManager {
 
     public void closeDevice() throws JposException {
         msrDevice.getDynamicDevice().closeDevice();
+        msrDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_close", "MSR", msrDevice.getDeviceName());
     }
 

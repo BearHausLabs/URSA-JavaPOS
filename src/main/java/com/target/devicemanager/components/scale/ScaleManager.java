@@ -194,11 +194,13 @@ public class ScaleManager implements ScaleEventListener, ConnectionEventListener
 
     public void enableDevice() throws JposException {
         scaleDevice.getDynamicDevice().enableDevice();
+        scaleDevice.setDeviceConnected(true);
         log.logDeviceEvent("lifecycle_enable", "Scale", scaleDevice.getDeviceName());
     }
 
     public void disableDevice() throws JposException {
         scaleDevice.getDynamicDevice().disableDevice();
+        scaleDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_disable", "Scale", scaleDevice.getDeviceName());
     }
 
@@ -209,6 +211,7 @@ public class ScaleManager implements ScaleEventListener, ConnectionEventListener
 
     public void closeDevice() throws JposException {
         scaleDevice.getDynamicDevice().closeDevice();
+        scaleDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_close", "Scale", scaleDevice.getDeviceName());
     }
 

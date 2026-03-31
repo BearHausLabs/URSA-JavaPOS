@@ -112,11 +112,13 @@ public class ToneManager {
 
     public void enableDevice() throws JposException {
         toneDevice.getDynamicDevice().enableDevice();
+        toneDevice.setDeviceConnected(true);
         log.logDeviceEvent("lifecycle_enable", "ToneIndicator", toneDevice.getDeviceName());
     }
 
     public void disableDevice() throws JposException {
         toneDevice.getDynamicDevice().disableDevice();
+        toneDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_disable", "ToneIndicator", toneDevice.getDeviceName());
     }
 
@@ -127,6 +129,7 @@ public class ToneManager {
 
     public void closeDevice() throws JposException {
         toneDevice.getDynamicDevice().closeDevice();
+        toneDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_close", "ToneIndicator", toneDevice.getDeviceName());
     }
 

@@ -123,11 +123,13 @@ public class KeyboardManager {
 
     public void enableDevice() throws JposException {
         keyboardDevice.getDynamicDevice().enableDevice();
+        keyboardDevice.setDeviceConnected(true);
         log.logDeviceEvent("lifecycle_enable", "Keyboard", keyboardDevice.getDeviceName());
     }
 
     public void disableDevice() throws JposException {
         keyboardDevice.getDynamicDevice().disableDevice();
+        keyboardDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_disable", "Keyboard", keyboardDevice.getDeviceName());
     }
 
@@ -138,6 +140,7 @@ public class KeyboardManager {
 
     public void closeDevice() throws JposException {
         keyboardDevice.getDynamicDevice().closeDevice();
+        keyboardDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_close", "Keyboard", keyboardDevice.getDeviceName());
     }
 

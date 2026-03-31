@@ -177,6 +177,7 @@ public class CashDrawerManager {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Cash drawer not found: drawer " + drawerId);
         }
         drawer.getDynamicDevice().enableDevice();
+        drawer.setDeviceConnected(true);
         log.logDeviceEvent("lifecycle_enable", "CashDrawer/" + drawerId, drawer.getDeviceName());
     }
 
@@ -186,6 +187,7 @@ public class CashDrawerManager {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Cash drawer not found: drawer " + drawerId);
         }
         drawer.getDynamicDevice().disableDevice();
+        drawer.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_disable", "CashDrawer/" + drawerId, drawer.getDeviceName());
     }
 
@@ -204,6 +206,7 @@ public class CashDrawerManager {
             throw new JposException(jpos.JposConst.JPOS_E_NOEXIST, "Cash drawer not found: drawer " + drawerId);
         }
         drawer.getDynamicDevice().closeDevice();
+        drawer.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_close", "CashDrawer/" + drawerId, drawer.getDeviceName());
     }
 

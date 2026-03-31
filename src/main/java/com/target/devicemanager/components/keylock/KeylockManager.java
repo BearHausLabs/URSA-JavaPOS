@@ -150,11 +150,13 @@ public class KeylockManager {
 
     public void enableDevice() throws JposException {
         keylockDevice.getDynamicDevice().enableDevice();
+        keylockDevice.setDeviceConnected(true);
         log.logDeviceEvent("lifecycle_enable", "Keylock", keylockDevice.getDeviceName());
     }
 
     public void disableDevice() throws JposException {
         keylockDevice.getDynamicDevice().disableDevice();
+        keylockDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_disable", "Keylock", keylockDevice.getDeviceName());
     }
 
@@ -165,6 +167,7 @@ public class KeylockManager {
 
     public void closeDevice() throws JposException {
         keylockDevice.getDynamicDevice().closeDevice();
+        keylockDevice.setDeviceConnected(false);
         log.logDeviceEvent("lifecycle_close", "Keylock", keylockDevice.getDeviceName());
     }
 
