@@ -155,6 +155,7 @@ public class ScannerDevice {
             JposException jposException = new JposException(JposConst.JPOS_E_OFFLINE);
             throw jposException;
         }
+        attachEventListeners();
         deviceListener.startEventListeners();
         try {
             Scanner scanner;
